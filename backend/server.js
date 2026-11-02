@@ -25,7 +25,17 @@ app.use(helmet());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-const allowedOrigins = (process.env.CLIENT_URL || '').split(',').map((o) => o.trim());
+// On Vercel the request arrives through Vercel's proxy, so take the client IP
+// from X-Forwarded-For (otherwise the rate limiter puts every user in one bucket).
+if (process.env.VERCEL) app.set('trust proxy', 1);
+
+// On Vercel the frontend and the API share the deployment's domain, so the
+// deployment, branch and production URLs are always allowed. Add any other
+// custom domains to CLIENT_URL.
+const vercelOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]
+  .filter(Boolean)
+  .map((host) => `https://${host}`);
+const allowedOrigins = [...(process.env.CLIENT_URL || '').split(','), ...vercelOrigins].map((o) => o.trim());
 app.use(
   cors({
     origin: (origin, callback) => {

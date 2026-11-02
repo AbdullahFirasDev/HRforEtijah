@@ -1,6 +1,8 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Same-origin by default: on Vercel the backend service owns /api, and the
+// Vite dev server proxies /api to the local backend.
+const baseUrl = import.meta.env.VITE_API_URL || '/api';
 
 const baseQuery = fetchBaseQuery({
   baseUrl,

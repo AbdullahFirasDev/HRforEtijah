@@ -50,9 +50,9 @@ npm run dev       # starts on http://localhost:5000
 ### Frontend
 ```bash
 cd frontend
-cp .env.example .env   # VITE_API_URL=http://localhost:5000/api
+cp .env.example .env   # VITE_API_URL empty = same-origin /api
 npm install
-npm run dev              # starts on http://localhost:5173
+npm run dev              # starts on http://localhost:5173, proxies /api to :5000
 ```
 
 Open `http://localhost:5173`, log in with one of the seeded accounts, and try the flow:
@@ -60,7 +60,7 @@ Open `http://localhost:5173`, log in with one of the seeded accounts, and try th
 2. Log in as **manager@demo.com** → Team Attendance / Overtime Approvals / Validate Selfies.
 3. Log in as **admin@demo.com** → All Users / All Attendance / Overtime Approvals / Validate Selfies / Reports.
 
-> Camera and Geolocation APIs require a **secure context**. `localhost` is exempt from HTTPS requirements, so this works locally over plain HTTP. In production it works automatically because Vercel/Netlify/Render all serve over HTTPS.
+> Camera and Geolocation APIs require a **secure context**. `localhost` is exempt from HTTPS requirements, so this works locally over plain HTTP. In production it works automatically because Vercel serves over HTTPS.
 
 ---
 
@@ -96,21 +96,24 @@ Open `http://localhost:5173`, log in with one of the seeded accounts, and try th
 
 ## 5. Deployment
 
-### Backend → Render
-1. Push this repo to GitHub.
-2. On [render.com](https://render.com) → New → Web Service → connect the repo, root directory `backend`.
-3. Build command: `npm install` · Start command: `npm start`.
-4. Add environment variables from `.env.example` (MONGO_URI, JWT_SECRET, CLIENT_URL=your Vercel URL, etc).
-5. Deploy — note the URL, e.g. `https://your-app.onrender.com`.
+Both apps deploy as one Vercel project using [Vercel Services](https://vercel.com/docs/services), configured in the root `vercel.json`:
 
-### Frontend → Vercel
-1. On [vercel.com](https://vercel.com) → New Project → import the repo, root directory `frontend`.
-2. Framework preset: Vite. Build command `npm run build`, output dir `dist`.
-3. Add environment variable `VITE_API_URL=https://your-app.onrender.com/api`.
-4. Deploy — then go back to Render and set `CLIENT_URL` to this Vercel URL so CORS allows it, and redeploy the backend.
+| Service    | Root        | Public path | Runs as                    |
+|------------|-------------|-------------|----------------------------|
+| `backend`  | `backend/`  | `/api/*`    | Express on Vercel Functions |
+| `frontend` | `frontend/` | everything else | Vite static build (SPA fallback to `index.html`) |
+
+The frontend calls the API on the same origin (`/api`), so every preview deployment talks to its own backend and no `VITE_API_URL` or `CLIENT_URL` is needed.
+
+1. On [vercel.com](https://vercel.com) → New Project → import the repo with the root directory left at the repository root.
+2. Add the backend environment variables from `backend/.env.example` (`MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `STANDARD_SHIFT_HOURS`, `GEOFENCE_*`). Add `CLIENT_URL` only for extra custom domains.
+3. In MongoDB Atlas → Network Access, allow `0.0.0.0/0`: Vercel Functions don't have fixed outbound IPs.
+4. Deploy. To run both services locally the way Vercel routes them, use `vercel dev` from the repository root.
+
+On Vercel, logs go to the project's Runtime Logs instead of `logs/*.log` (the function filesystem is read-only).
 
 ### One-time production data
-SSH isn't available on Render free tier, so run the seed script locally against your Atlas URI once (`MONGO_URI=<atlas-uri> npm run seed` from `backend/`) to create your first admin/manager/employee accounts, or just sign up through the UI (see Assumptions).
+Run the seed script locally against your Atlas URI once (`MONGO_URI=<atlas-uri> npm run seed` from `backend/`) to create your first admin/manager/employee accounts, or just sign up through the UI (see Assumptions).
 
 ---
 
