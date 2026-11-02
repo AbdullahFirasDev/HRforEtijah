@@ -1,20 +1,29 @@
+import Field from './Field';
+
+// Empty date fields show an Arabic hint instead of the browser's own
+// day/month/year mask (see .date-input in index.css).
+function DateInput({ id, value, onChange, ...rest }) {
+  return (
+    <div className="date-input" data-empty={!value} data-placeholder="اختر التاريخ">
+      <input id={id} type="date" value={value || ''} onChange={(e) => onChange(e.target.value)} {...rest} />
+    </div>
+  );
+}
+
 export default function DateRangeFilter({ from, to, onFromChange, onToChange, onClear, extra }) {
   return (
     <div className="toolbar">
-      <div>
-        <label>From</label>
-        <input type="date" value={from || ''} max={to || undefined} onChange={(e) => onFromChange(e.target.value)} />
-      </div>
-      <div>
-        <label>To</label>
-        <input type="date" value={to || ''} min={from || undefined} onChange={(e) => onToChange(e.target.value)} />
-      </div>
+      <Field id="filter-from" label="من تاريخ">
+        <DateInput id="filter-from" value={from} max={to || undefined} onChange={onFromChange} />
+      </Field>
+      <Field id="filter-to" label="إلى تاريخ">
+        <DateInput id="filter-to" value={to} min={from || undefined} onChange={onToChange} />
+      </Field>
       {extra}
       {(from || to) && (
-        <div style={{ flex: 'none' }}>
-          <label>&nbsp;</label>
+        <div className="toolbar-actions">
           <button type="button" className="btn secondary" onClick={onClear}>
-            Clear
+            مسح التاريخ
           </button>
         </div>
       )}

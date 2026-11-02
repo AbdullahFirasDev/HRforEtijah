@@ -1,3 +1,5 @@
+import { statusLabel } from '../utils/labels';
+
 const VARIANT_MAP = {
   Completed: 'success',
   Incomplete: 'warning',
@@ -11,5 +13,5 @@ const VARIANT_MAP = {
 
 export default function StatusBadge({ status }) {
   const variant = VARIANT_MAP[status] || 'info';
-  return <span className={`badge ${variant}`}>{status}</span>;
+  return <span className={`badge ${variant}`}>{statusLabel(status)}</span>;
 }

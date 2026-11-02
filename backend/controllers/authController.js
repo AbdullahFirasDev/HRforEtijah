@@ -22,10 +22,10 @@ const login = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({ email: email?.toLowerCase() }).select('+password');
   if (!user || !(await user.matchPassword(password))) {
-    throw new ApiError(401, 'Invalid email or password');
+    throw new ApiError(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
   }
   if (!user.isActive) {
-    throw new ApiError(403, 'This account has been deactivated');
+    throw new ApiError(403, 'هذا الحساب معطّل. تواصل مع مسؤول النظام');
   }
 
   const token = generateToken(user._id, user.role);

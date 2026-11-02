@@ -2,7 +2,7 @@ const logger = require('../config/logger');
 
 const notFound = (req, res, next) => {
   res.status(404);
-  next(new Error(`Route not found - ${req.originalUrl}`));
+  next(new Error(`المسار غير موجود - ${req.originalUrl}`));
 };
 
 // eslint-disable-next-line no-unused-vars
@@ -10,19 +10,19 @@ const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode && err.statusCode !== 200 ? err.statusCode : res.statusCode;
   if (!statusCode || statusCode < 400) statusCode = 500;
 
-  let message = err.message || 'Server Error';
+  let message = err.message || 'حدث خطأ في الخادم';
 
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
     statusCode = 400;
-    message = `Invalid value for field '${err.path}'`;
+    message = `قيمة غير صالحة للحقل '${err.path}'`;
   }
 
   // Mongoose duplicate key
   if (err.code === 11000) {
     statusCode = 409;
     const field = Object.keys(err.keyValue || {})[0];
-    message = `Duplicate value for field '${field}'`;
+    message = field === 'email' ? 'يوجد حساب بهذا البريد الإلكتروني مسبقاً' : 'هذا السجل موجود مسبقاً';
   }
 
   // Mongoose validation error

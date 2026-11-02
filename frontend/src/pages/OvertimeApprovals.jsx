@@ -2,6 +2,11 @@ import { useMemo, useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
 import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
+import PageHeader from '../components/PageHeader';
+import Alert from '../components/Alert';
+import Loading from '../components/Loading';
+import { formatHours } from '../utils/format';
+import { statusLabel } from '../utils/labels';
 import {
   useGetAllOvertimeForReviewerQuery,
   useReviewOvertimeMutation,
@@ -12,14 +17,17 @@ export default function OvertimeApprovals() {
   const [reviewOvertime, { isLoading: reviewing }] = useReviewOvertimeMutation();
   const [remarksMap, setRemarksMap] = useState({});
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [range, setRange] = useState({ from: '', to: '' });
 
-  const handleReview = async (id, status) => {
+  const handleReview = async (r, status) => {
     setError('');
+    setSuccess('');
     try {
-      await reviewOvertime({ id, status, reviewRemarks: remarksMap[id] || '' }).unwrap();
+      await reviewOvertime({ id: r._id, status, reviewRemarks: remarksMap[r._id] || '' }).unwrap();
+      setSuccess(`تم ${status === 'Approved' ? 'قبول' : 'رفض'} طلب ${r.user?.name || 'الموظف'} بتاريخ ${r.date}.`);
     } catch (err) {
-      setError(err?.data?.message || 'Failed to review request.');
+      setError(err?.data?.message || 'تعذرت مراجعة الطلب. حاول مرة أخرى.');
     }
   };
 
@@ -29,22 +37,24 @@ export default function OvertimeApprovals() {
   }, [data, range]);
 
   const columns = [
-    { key: 'employee', label: 'Employee', value: (r) => r.user?.name, render: (r) => r.user?.name },
-    { key: 'date', label: 'Date', value: (r) => r.date },
-    { key: 'requestedHours', label: 'Hours', value: (r) => `${r.requestedHours}h` },
-    { key: 'reason', label: 'Reason', value: (r) => r.reason },
-    { key: 'status', label: 'Status', value: (r) => r.status, render: (r) => <StatusBadge status={r.status} /> },
+    { key: 'employee', label: 'الموظف', value: (r) => r.user?.name },
+    { key: 'date', label: 'التاريخ', value: (r) => r.date },
+    { key: 'requestedHours', label: 'الساعات', value: (r) => formatHours(r.requestedHours) },
+    { key: 'reason', label: 'السبب', value: (r) => r.reason, wrap: true },
+    { key: 'status', label: 'الحالة', value: (r) => statusLabel(r.status), render: (r) => <StatusBadge status={r.status} /> },
     {
       key: 'remarks',
-      label: 'Remarks',
+      label: 'الملاحظات',
       value: (r) => (r.status === 'Pending' ? remarksMap[r._id] || '' : r.reviewRemarks || '-'),
       render: (r) =>
         r.status === 'Pending' ? (
           <input
-            placeholder="Optional remarks"
+            className="input-sm"
+            placeholder="ملاحظة (اختياري)"
+            aria-label={`ملاحظة على طلب ${r.user?.name || ''}`}
             value={remarksMap[r._id] || ''}
             onChange={(e) => setRemarksMap({ ...remarksMap, [r._id]: e.target.value })}
-            style={{ marginBottom: 0, minWidth: 140 }}
+            style={{ minWidth: 140 }}
           />
         ) : (
           r.reviewRemarks || '-'
@@ -52,26 +62,16 @@ export default function OvertimeApprovals() {
     },
     {
       key: 'action',
-      label: 'Action',
+      label: 'الإجراء',
       value: () => '',
       render: (r) =>
         r.status === 'Pending' ? (
-          <span style={{ whiteSpace: 'nowrap' }}>
-            <button
-              className="btn success"
-              disabled={reviewing}
-              onClick={() => handleReview(r._id, 'Approved')}
-              style={{ marginRight: 6, padding: '6px 12px' }}
-            >
-              Approve
+          <span className="row-actions">
+            <button className="btn success btn-sm" disabled={reviewing} onClick={() => handleReview(r, 'Approved')}>
+              قبول
             </button>
-            <button
-              className="btn danger"
-              disabled={reviewing}
-              onClick={() => handleReview(r._id, 'Rejected')}
-              style={{ padding: '6px 12px' }}
-            >
-              Reject
+            <button className="btn danger btn-sm" disabled={reviewing} onClick={() => handleReview(r, 'Rejected')}>
+              رفض
             </button>
           </span>
         ) : (
@@ -82,8 +82,13 @@ export default function OvertimeApprovals() {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 20 }}>Overtime Approvals</h1>
-      {error && <p className="error-text">{error}</p>}
+      <PageHeader title="اعتماد العمل الإضافي" subtitle="راجع طلبات العمل الإضافي واقبلها أو ارفضها مع ملاحظة اختيارية." />
+      <Alert type="error" onClose={() => setError('')}>
+        {error}
+      </Alert>
+      <Alert type="success" onClose={() => setSuccess('')}>
+        {success}
+      </Alert>
 
       <DateRangeFilter
         from={range.from}
@@ -94,13 +99,14 @@ export default function OvertimeApprovals() {
       />
 
       {isLoading ? (
-        <p>Loading...</p>
+        <Loading />
       ) : (
         <DataTable
+          exportTitle="طلبات العمل الإضافي"
           columns={columns}
           rows={rows}
-          emptyLabel="No overtime requests to review."
-          searchPlaceholder="Search requests..."
+          emptyLabel="لا توجد طلبات عمل إضافي للمراجعة."
+          searchPlaceholder="ابحث في الطلبات..."
           fileName="overtime-approvals"
         />
       )}

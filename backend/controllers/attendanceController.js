@@ -13,18 +13,18 @@ const todayStr = todayIST;
 const punchIn = asyncHandler(async (req, res) => {
   const { selfie, lat, lng } = req.body;
 
-  if (!selfie) throw new ApiError(400, 'A live selfie is required to punch in');
+  if (!selfie) throw new ApiError(400, 'يلزم التقاط صورة مباشرة لتسجيل الحضور');
   if (lat === undefined || lng === undefined) {
-    throw new ApiError(400, 'Location (lat, lng) is required to punch in');
+    throw new ApiError(400, 'يلزم تحديد موقعك لتسجيل الحضور');
   }
   if (!isWithinGeofence(lat, lng)) {
-    throw new ApiError(400, 'You are outside the allowed attendance location radius');
+    throw new ApiError(400, 'أنت خارج النطاق الجغرافي المسموح لتسجيل الحضور');
   }
 
   const date = todayStr();
   const existing = await Attendance.findOne({ user: req.user._id, date });
   if (existing && existing.punchIn?.time) {
-    throw new ApiError(409, 'You have already punched in today');
+    throw new ApiError(409, 'لقد سجّلت حضورك اليوم مسبقاً');
   }
 
   const record =
@@ -46,18 +46,18 @@ const punchIn = asyncHandler(async (req, res) => {
 const punchOut = asyncHandler(async (req, res) => {
   const { selfie, lat, lng } = req.body;
 
-  if (!selfie) throw new ApiError(400, 'A live selfie is required to punch out');
+  if (!selfie) throw new ApiError(400, 'يلزم التقاط صورة مباشرة لتسجيل الانصراف');
   if (lat === undefined || lng === undefined) {
-    throw new ApiError(400, 'Location (lat, lng) is required to punch out');
+    throw new ApiError(400, 'يلزم تحديد موقعك لتسجيل الانصراف');
   }
 
   const date = todayStr();
   const record = await Attendance.findOne({ user: req.user._id, date });
   if (!record || !record.punchIn?.time) {
-    throw new ApiError(400, 'You must punch in before punching out');
+    throw new ApiError(400, 'يجب تسجيل الحضور قبل تسجيل الانصراف');
   }
   if (record.punchOut?.time) {
-    throw new ApiError(409, 'You have already punched out today');
+    throw new ApiError(409, 'لقد سجّلت انصرافك اليوم مسبقاً');
   }
 
   const now = new Date();
@@ -158,15 +158,15 @@ const getAllAttendance = asyncHandler(async (req, res) => {
 const validateAttendance = asyncHandler(async (req, res) => {
   const { status, remarks } = req.body;
   if (!['Valid', 'Invalid'].includes(status)) {
-    throw new ApiError(400, "Validation status must be 'Valid' or 'Invalid'");
+    throw new ApiError(400, 'نتيجة التحقق يجب أن تكون "صحيح" أو "غير صحيح"');
   }
 
   const record = await Attendance.findById(req.params.id).populate('user', 'name manager');
-  if (!record) throw new ApiError(404, 'Attendance record not found');
+  if (!record) throw new ApiError(404, 'سجل الحضور غير موجود');
 
   // A manager may only validate their own team's records
   if (req.user.role === 'manager' && String(record.user.manager) !== String(req.user._id)) {
-    throw new ApiError(403, 'You can only validate attendance for your own team');
+    throw new ApiError(403, 'يمكنك التحقق من حضور أعضاء فريقك فقط');
   }
 
   record.validation = {

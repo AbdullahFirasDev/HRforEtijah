@@ -18,9 +18,9 @@ router.use(protect);
 router.post(
   '/request',
   [
-    body('requestedHours').isFloat({ gt: 0 }).withMessage('requestedHours must be greater than 0'),
-    body('reason').trim().notEmpty().withMessage('reason is required'),
-    body('date').optional().isISO8601().withMessage('date must be a valid date'),
+    body('requestedHours').isFloat({ gt: 0 }).withMessage('عدد الساعات يجب أن يكون أكبر من صفر'),
+    body('reason').trim().notEmpty().withMessage('سبب الطلب مطلوب'),
+    body('date').optional().isISO8601().withMessage('التاريخ غير صحيح'),
   ],
   validate,
   requestOvertime
@@ -33,9 +33,9 @@ router.get('/all', authorize('manager', 'admin'), getAllOvertimeForReviewer);
 router.patch(
   '/:id',
   [
-    body('requestedHours').optional().isFloat({ gt: 0 }).withMessage('requestedHours must be greater than 0'),
-    body('reason').optional().trim().notEmpty().withMessage('reason cannot be empty'),
-    body('date').optional().isISO8601().withMessage('date must be a valid date'),
+    body('requestedHours').optional().isFloat({ gt: 0 }).withMessage('عدد الساعات يجب أن يكون أكبر من صفر'),
+    body('reason').optional().trim().notEmpty().withMessage('سبب الطلب لا يمكن أن يكون فارغاً'),
+    body('date').optional().isISO8601().withMessage('التاريخ غير صحيح'),
   ],
   validate,
   updateOvertime
@@ -44,7 +44,7 @@ router.patch(
 router.patch(
   '/:id/review',
   authorize('manager', 'admin'),
-  [body('status').isIn(['Approved', 'Rejected']).withMessage("status must be 'Approved' or 'Rejected'")],
+  [body('status').isIn(['Approved', 'Rejected']).withMessage('الحالة يجب أن تكون "مقبول" أو "مرفوض"')],
   validate,
   reviewOvertime
 );

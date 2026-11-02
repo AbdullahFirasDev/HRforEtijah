@@ -3,7 +3,18 @@ import { useGetAllUsersQuery, useUpdateUserMutation } from '../features/api/user
 import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
 import AddEmployeeModal from '../components/AddEmployeeModal';
+import PageHeader from '../components/PageHeader';
+import Field from '../components/Field';
+import Alert from '../components/Alert';
+import Loading from '../components/Loading';
 import { formatDate } from '../utils/format';
+import { ROLE_LABELS, roleLabel } from '../utils/labels';
+
+const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => (
+  <option key={value} value={value}>
+    {label}
+  </option>
+));
 
 export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState('');
@@ -16,24 +27,28 @@ export default function AdminUsers() {
 
   const handleCreated = (u) => {
     setShowAdd(false);
-    setSuccess(`${u.name} was added. Share the email and initial password with them so they can log in.`);
+    setSuccess(`تمت إضافة ${u.name}. شارك البريد الإلكتروني وكلمة المرور الأولية مع الموظف ليتمكن من تسجيل الدخول.`);
   };
 
   const handleToggleActive = async (u) => {
     setError('');
+    setSuccess('');
     try {
       await updateUser({ id: u.id, isActive: !u.isActive }).unwrap();
+      setSuccess(u.isActive ? `تم تعطيل حساب ${u.name}.` : `تم تفعيل حساب ${u.name}.`);
     } catch (err) {
-      setError(err?.data?.message || 'Failed to update user.');
+      setError(err?.data?.message || 'تعذر تحديث حالة المستخدم.');
     }
   };
 
   const handleRoleChange = async (u, role) => {
     setError('');
+    setSuccess('');
     try {
       await updateUser({ id: u.id, role }).unwrap();
+      setSuccess(`تم تغيير دور ${u.name} إلى "${roleLabel(role)}".`);
     } catch (err) {
-      setError(err?.data?.message || 'Failed to update role.');
+      setError(err?.data?.message || 'تعذر تغيير الدور.');
     }
   };
 
@@ -46,34 +61,41 @@ export default function AdminUsers() {
   }, [data, range]);
 
   const columns = [
-    { key: 'name', label: 'Name', value: (u) => u.name },
-    { key: 'email', label: 'Email', value: (u) => u.email },
+    { key: 'name', label: 'الاسم', value: (u) => u.name },
+    { key: 'email', label: 'البريد الإلكتروني', value: (u) => u.email, render: (u) => <span dir="ltr">{u.email}</span> },
     {
       key: 'role',
-      label: 'Role',
-      value: (u) => u.role,
+      label: 'الدور',
+      value: (u) => roleLabel(u.role),
       render: (u) => (
-        <select value={u.role} onChange={(e) => handleRoleChange(u, e.target.value)} style={{ marginBottom: 0 }}>
-          <option value="employee">Employee</option>
-          <option value="manager">Manager</option>
-          <option value="admin">Admin</option>
+        <select
+          className="input-sm"
+          aria-label={`دور ${u.name}`}
+          value={u.role}
+          onChange={(e) => handleRoleChange(u, e.target.value)}
+          style={{ minWidth: 140 }}
+        >
+          {ROLE_OPTIONS}
         </select>
       ),
     },
     {
       key: 'status',
-      label: 'Status',
-      value: (u) => (u.isActive ? 'Active' : 'Deactivated'),
-      render: (u) => <span className={`badge ${u.isActive ? 'success' : 'danger'}`}>{u.isActive ? 'Active' : 'Deactivated'}</span>,
+      label: 'الحالة',
+      value: (u) => (u.isActive ? 'نشط' : 'معطّل'),
+      render: (u) => <span className={`badge ${u.isActive ? 'success' : 'danger'}`}>{u.isActive ? 'نشط' : 'معطّل'}</span>,
     },
-    { key: 'joined', label: 'Joined', value: (u) => formatDate(u.createdAt) },
+    { key: 'joined', label: 'تاريخ الإضافة', value: (u) => formatDate(u.createdAt) },
     {
       key: 'action',
-      label: 'Action',
+      label: 'الإجراء',
       value: () => '',
       render: (u) => (
-        <button className="btn secondary" style={{ padding: '6px 12px' }} onClick={() => handleToggleActive(u)}>
-          {u.isActive ? 'Deactivate' : 'Activate'}
+        <button
+          className={`btn btn-sm ${u.isActive ? 'secondary' : 'success'}`}
+          onClick={() => handleToggleActive(u)}
+        >
+          {u.isActive ? 'تعطيل' : 'تفعيل'}
         </button>
       ),
     },
@@ -81,20 +103,27 @@ export default function AdminUsers() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <h1 style={{ margin: 0 }}>All Users</h1>
-        <button
-          className="btn"
-          onClick={() => {
-            setSuccess('');
-            setShowAdd(true);
-          }}
-        >
-          + Add Employee
-        </button>
-      </div>
-      {error && <p className="error-text">{error}</p>}
-      {success && <p className="success-text">{success}</p>}
+      <PageHeader
+        title="المستخدمون"
+        subtitle="أضف الموظفين وعدّل أدوارهم وفعّل حساباتهم أو عطّلها."
+        actions={
+          <button
+            className="btn"
+            onClick={() => {
+              setSuccess('');
+              setShowAdd(true);
+            }}
+          >
+            + إضافة موظف
+          </button>
+        }
+      />
+      <Alert type="error" onClose={() => setError('')}>
+        {error}
+      </Alert>
+      <Alert type="success" onClose={() => setSuccess('')}>
+        {success}
+      </Alert>
 
       <AddEmployeeModal open={showAdd} onClose={() => setShowAdd(false)} onCreated={handleCreated} />
 
@@ -105,26 +134,24 @@ export default function AdminUsers() {
         onToChange={(v) => setRange({ ...range, to: v })}
         onClear={() => setRange({ from: '', to: '' })}
         extra={
-          <div>
-            <label>Filter by Role</label>
-            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-              <option value="">All</option>
-              <option value="employee">Employee</option>
-              <option value="manager">Manager</option>
-              <option value="admin">Admin</option>
+          <Field id="role-filter" label="تصفية حسب الدور">
+            <select id="role-filter" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+              <option value="">الكل</option>
+              {ROLE_OPTIONS}
             </select>
-          </div>
+          </Field>
         }
       />
 
       {isLoading ? (
-        <p>Loading...</p>
+        <Loading />
       ) : (
         <DataTable
+          exportTitle="المستخدمون"
           columns={columns}
           rows={rows}
-          emptyLabel="No users found."
-          searchPlaceholder="Search users..."
+          emptyLabel="لا يوجد مستخدمون."
+          searchPlaceholder="ابحث عن مستخدم..."
           fileName="all-users"
           rowKey={(row) => row.id}
         />

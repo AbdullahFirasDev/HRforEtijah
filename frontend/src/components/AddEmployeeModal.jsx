@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useCreateUserMutation } from '../features/api/userApi';
 import { useGetManagersListQuery } from '../features/api/authApi';
+import AccountFields from './AccountFields';
+import Alert from './Alert';
+import { MIN_PASSWORD, hasErrors, updateAccountForm, validateAccountForm } from '../utils/validation';
 
 const EMPTY_FORM = { name: '', email: '', password: '', role: 'employee', managerId: '' };
 
@@ -8,6 +11,7 @@ const EMPTY_FORM = { name: '', email: '', password: '', role: 'employee', manage
 // must report to an existing manager/admin. The admin stays signed in.
 export default function AddEmployeeModal({ open, onClose, onCreated }) {
   const [form, setForm] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
   const [createUser, { isLoading }] = useCreateUserMutation();
   const { data: managersData } = useGetManagersListQuery(undefined, { skip: !open });
@@ -16,79 +20,59 @@ export default function AddEmployeeModal({ open, onClose, onCreated }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'role' && value !== 'employee') {
-      // Manager/Admin accounts don't report to anyone.
-      setForm({ ...form, role: value, managerId: '' });
-    } else {
-      setForm({ ...form, [name]: value });
-    }
+    setForm((f) => updateAccountForm(f, { name, value }));
+    setErrors((prev) => ({ ...prev, [name]: undefined, ...(name === 'role' && { managerId: undefined }) }));
+  };
+
+  const reset = () => {
+    setForm(EMPTY_FORM);
+    setErrors({});
+    setError('');
   };
 
   const handleClose = () => {
-    setForm(EMPTY_FORM);
-    setError('');
+    reset();
     onClose();
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const found = validateAccountForm(form);
+    setErrors(found);
+    if (hasErrors(found)) return;
     try {
       const res = await createUser(form).unwrap();
-      setForm(EMPTY_FORM);
+      reset();
       onCreated(res.user);
     } catch (err) {
-      setError(err?.data?.message || 'Failed to add employee.');
+      setError(err?.data?.message || 'تعذرت إضافة الموظف. حاول مرة أخرى.');
     }
   };
 
   return (
     <div className="modal-overlay">
-      <div className="modal-box">
-        <h2 className="card-title">Add New Employee</h2>
-        <form onSubmit={handleSubmit}>
-          <label>Full Name</label>
-          <input name="name" value={form.name} onChange={handleChange} required autoFocus />
-          <label>Email</label>
-          <input type="email" name="email" value={form.email} onChange={handleChange} required />
-          <label>Initial Password</label>
-          <input
-            type="password"
-            name="password"
-            value={form.password}
+      <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="add-employee-title">
+        <h2 id="add-employee-title" className="card-title">
+          إضافة موظف جديد
+        </h2>
+        <form onSubmit={handleSubmit} noValidate>
+          <AccountFields
+            idPrefix="add-employee"
+            form={form}
+            errors={errors}
             onChange={handleChange}
-            minLength={6}
-            autoComplete="new-password"
-            required
+            managers={managersData?.managers}
+            passwordLabel="كلمة المرور الأولية"
+            passwordHint={`${MIN_PASSWORD} أحرف على الأقل، وتُسلَّم للموظف ليسجل دخوله بها`}
           />
-          <label>Role</label>
-          <select name="role" value={form.role} onChange={handleChange}>
-            <option value="employee">Employee</option>
-            <option value="manager">Manager</option>
-            <option value="admin">Admin</option>
-          </select>
-          {form.role === 'employee' && (
-            <>
-              <label>Assign Manager</label>
-              <select name="managerId" value={form.managerId} onChange={handleChange} required>
-                <option value="" disabled>
-                  Select a manager
-                </option>
-                {managersData?.managers?.map((m) => (
-                  <option key={m._id} value={m._id}>
-                    {m.name} ({m.role})
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-          {error && <p className="error-text">{error}</p>}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn secondary" onClick={handleClose} disabled={isLoading}>
-              Cancel
+          <Alert type="error">{error}</Alert>
+          <div className="form-actions">
+            <button type="submit" className="btn" disabled={isLoading}>
+              {isLoading ? 'جارٍ الإضافة...' : 'إضافة الموظف'}
             </button>
-            <button className="btn" disabled={isLoading}>
-              {isLoading ? 'Adding...' : 'Add Employee'}
+            <button type="button" className="btn secondary" onClick={handleClose} disabled={isLoading}>
+              إلغاء
             </button>
           </div>
         </form>

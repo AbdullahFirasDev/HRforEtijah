@@ -12,8 +12,8 @@ router.post('/register', newUserRules, validate, register);
 router.post(
   '/login',
   [
-    body('email').isEmail().withMessage('A valid email is required'),
-    body('password').notEmpty().withMessage('Password is required'),
+    body('email').isEmail().withMessage('أدخل بريداً إلكترونياً صحيحاً'),
+    body('password').notEmpty().withMessage('كلمة المرور مطلوبة'),
   ],
   validate,
   login

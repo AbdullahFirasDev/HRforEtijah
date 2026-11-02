@@ -3,46 +3,80 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useLoginMutation } from '../features/api/authApi';
 import { setCredentials } from '../features/auth/authSlice';
+import AuthLayout from '../components/AuthLayout';
+import Field from '../components/Field';
+import Alert from '../components/Alert';
+import { hasErrors, validateLoginForm } from '../utils/validation';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({});
+  const [error, setError] = useState('');
   const [login, { isLoading }] = useLoginMutation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: undefined }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const found = validateLoginForm(form);
+    setErrors(found);
+    if (hasErrors(found)) return;
     try {
-      const res = await login({ email, password }).unwrap();
+      const res = await login(form).unwrap();
       dispatch(setCredentials(res));
       navigate(`/${res.user.role}`);
     } catch (err) {
-      setError(err?.data?.message || 'Login failed. Please try again.');
+      setError(err?.data?.message || 'تعذر تسجيل الدخول. تحقق من اتصالك ثم حاول مرة أخرى.');
     }
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <h1>Welcome back</h1>
-        <p className="sub">Sign in to the Attendance Management System</p>
-        <form onSubmit={handleSubmit}>
-          <label>Email</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <label>Password</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          {error && <p className="error-text">{error}</p>}
-          <button className="btn" style={{ width: '100%' }} disabled={isLoading}>
-            {isLoading ? 'Signing in...' : 'Login'}
-          </button>
-        </form>
-        <p style={{ marginTop: 16, fontSize: 13 }}>
-          Don't have an account? <Link to="/signup">Sign up</Link>
+    <AuthLayout
+      title="مرحباً بعودتك"
+      subtitle="سجّل الدخول إلى نظام الاتجاه للحضور"
+      footer={
+        <p className="auth-footer">
+          ليس لديك حساب؟ <Link to="/signup">إنشاء حساب</Link>
         </p>
-      </div>
-    </div>
+      }
+    >
+      <form onSubmit={handleSubmit} noValidate>
+        <Field id="login-email" label="البريد الإلكتروني" required error={errors.email}>
+          <input
+            id="login-email"
+            type="email"
+            name="email"
+            dir="ltr"
+            placeholder="name@company.com"
+            value={form.email}
+            onChange={handleChange}
+            autoComplete="email"
+            aria-invalid={!!errors.email}
+          />
+        </Field>
+        <Field id="login-password" label="كلمة المرور" required error={errors.password}>
+          <input
+            id="login-password"
+            type="password"
+            name="password"
+            value={form.password}
+            onChange={handleChange}
+            autoComplete="current-password"
+            aria-invalid={!!errors.password}
+          />
+        </Field>
+        <Alert type="error">{error}</Alert>
+        <button type="submit" className="btn btn-block" disabled={isLoading}>
+          {isLoading ? 'جارٍ تسجيل الدخول...' : 'تسجيل الدخول'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

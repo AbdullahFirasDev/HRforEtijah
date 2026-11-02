@@ -3,7 +3,10 @@ import { useGetMyAttendanceQuery, useGetTodayStatusQuery } from '../features/api
 import { useGetMyOvertimeQuery } from '../features/api/overtimeApi';
 import MonthlyHoursChart from '../components/MonthlyHoursChart';
 import StatusBreakdownBars from '../components/StatusBreakdownBars';
-import { todayStr, formatDateLong } from '../utils/format';
+import PageHeader from '../components/PageHeader';
+import Loading from '../components/Loading';
+import { todayStr, formatDateLong, formatHours, formatMonthYear } from '../utils/format';
+import { statusLabel } from '../utils/labels';
 
 const MS_PER_HOUR = 1000 * 60 * 60;
 
@@ -64,62 +67,62 @@ export default function EmployeeSummary() {
     return { date: dateStr, hours };
   });
 
-  const monthLabel = new Date(year, month - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  const monthLabel = formatMonthYear(year, month);
+  const monthName = monthLabel.split(' ')[0];
 
-  if (attLoading) return <p>Loading...</p>;
+  if (attLoading) return <Loading />;
 
   return (
     <div>
-      <h1 style={{ marginBottom: 4 }}>My Dashboard</h1>
-      <p style={{ color: 'var(--color-muted)', marginTop: 0, marginBottom: 20 }}>{monthLabel} overview</p>
+      <PageHeader title="لوحة المعلومات" subtitle={`ملخص شهر ${monthLabel}`} />
 
       <div className="grid grid-4 dashboard-stats">
         <div className="stat-box">
-          <div className="value">{isLive ? liveHours.toFixed(2) : today?.totalHours || 0}h</div>
-          <div className="label">{isLive ? "Today's Live Hours" : "Today's Hours"}</div>
+          <div className="value">{formatHours(isLive ? liveHours.toFixed(2) : today?.totalHours)}</div>
+          <div className="label">{isLive ? 'ساعات اليوم (مباشر)' : 'ساعات اليوم'}</div>
         </div>
         <div className="stat-box">
-          <div className="value">{totalHours.toFixed(1)}h</div>
-          <div className="label">Total Hours ({monthLabel.split(' ')[0]})</div>
+          <div className="value">{formatHours(totalHours.toFixed(1))}</div>
+          <div className="label">إجمالي ساعات {monthName}</div>
         </div>
         <div className="stat-box">
           <div className="value">{presentDays}</div>
-          <div className="label">Present Days</div>
+          <div className="label">أيام الحضور</div>
         </div>
         <div className="stat-box">
-          <div className="value">{avgHours.toFixed(1)}h</div>
-          <div className="label">Avg Hours / Day</div>
+          <div className="value">{formatHours(avgHours.toFixed(1))}</div>
+          <div className="label">متوسط الساعات يومياً</div>
         </div>
         <div className="stat-box">
-          <div className="value">{approvedOvertimeHours}h</div>
-          <div className="label">Overtime Approved</div>
+          <div className="value">{formatHours(approvedOvertimeHours)}</div>
+          <div className="label">العمل الإضافي المعتمد</div>
         </div>
         <div className="stat-box">
           <div className="value">{pendingOvertime}</div>
-          <div className="label">Overtime Pending</div>
+          <div className="label">طلبات إضافي قيد الانتظار</div>
         </div>
         <div className="stat-box">
           <div className="value">{formatDateLong(todayStr())}</div>
-          <div className="label">Today's Date</div>
+          <div className="label">تاريخ اليوم</div>
         </div>
         <div className="stat-box">
-          <div className="value">{today?.status || 'Not Punched In'}</div>
-          <div className="label">Today's Status</div>
+          <div className="value">{today?.status ? statusLabel(today.status) : 'لم تسجّل حضورك'}</div>
+          <div className="label">حالة اليوم</div>
         </div>
       </div>
 
-      <div className="grid grid-2" style={{ alignItems: 'start' }}>
+      <div className="grid grid-2">
         <div className="card">
-          <h3 className="card-title">Hours Worked — {monthLabel}</h3>
+          <h3 className="card-title">ساعات العمل — {monthLabel}</h3>
           <MonthlyHoursChart days={chartDays} todayDate={to} />
         </div>
         <div className="card">
-          <h3 className="card-title">Attendance Breakdown — {monthLabel}</h3>
+          <h3 className="card-title">توزيع الحضور — {monthLabel}</h3>
           <StatusBreakdownBars
             items={[
-              { label: 'Completed', count: statusCounts.Completed, color: 'var(--color-success)' },
-              { label: 'Incomplete', count: statusCounts.Incomplete, color: 'var(--color-warning)' },
-              { label: 'Absent', count: statusCounts.Absent, color: 'var(--color-danger)' },
+              { label: statusLabel('Completed'), count: statusCounts.Completed, color: 'var(--color-success)' },
+              { label: statusLabel('Incomplete'), count: statusCounts.Incomplete, color: 'var(--color-warning)' },
+              { label: statusLabel('Absent'), count: statusCounts.Absent, color: 'var(--color-danger)' },
             ]}
           />
         </div>

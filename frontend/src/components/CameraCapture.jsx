@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Alert from './Alert';
 
 // Captures a live selfie straight from the device camera using
 // getUserMedia + a canvas snapshot. There is deliberately no <input type="file">
@@ -29,7 +30,7 @@ export default function CameraCapture({ onCapture, capturedImage, onRetake }) {
         setReady(true);
       }
     } catch (err) {
-      setError('Camera access denied or unavailable. Please allow camera permissions.');
+      setError('تعذر الوصول إلى الكاميرا. اسمح للمتصفح باستخدام الكاميرا ثم اضغط "إعادة المحاولة".');
     }
   };
 
@@ -58,10 +59,10 @@ export default function CameraCapture({ onCapture, capturedImage, onRetake }) {
   if (capturedImage) {
     return (
       <div className="camera-box">
-        <img src={capturedImage} alt="Captured selfie" />
-        <div style={{ padding: 10, background: '#111', textAlign: 'center' }}>
+        <img src={capturedImage} alt="الصورة الملتقطة" />
+        <div className="camera-actions">
           <button type="button" className="btn secondary" onClick={handleRetake}>
-            Retake Photo
+            إعادة الالتقاط
           </button>
         </div>
       </div>
@@ -73,11 +74,20 @@ export default function CameraCapture({ onCapture, capturedImage, onRetake }) {
       <div className="camera-box">
         <video ref={videoRef} autoPlay playsInline muted />
       </div>
-      {error && <p className="error-text">{error}</p>}
-      <div style={{ marginTop: 10 }}>
+      {error && (
+        <div style={{ marginTop: 'var(--space-3)' }}>
+          <Alert type="warning">{error}</Alert>
+        </div>
+      )}
+      <div className="camera-controls">
         <button type="button" className="btn" disabled={!ready} onClick={handleCapture}>
-          Capture Selfie
+          التقاط الصورة
         </button>
+        {error && (
+          <button type="button" className="btn secondary" onClick={startCamera}>
+            إعادة المحاولة
+          </button>
+        )}
       </div>
     </div>
   );

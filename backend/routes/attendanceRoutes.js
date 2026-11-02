@@ -17,9 +17,9 @@ const router = express.Router();
 router.use(protect);
 
 const punchValidators = [
-  body('selfie').notEmpty().withMessage('Selfie image is required'),
-  body('lat').isFloat().withMessage('lat must be a number'),
-  body('lng').isFloat().withMessage('lng must be a number'),
+  body('selfie').notEmpty().withMessage('صورة السيلفي مطلوبة'),
+  body('lat').isFloat().withMessage('إحداثيات الموقع غير صحيحة'),
+  body('lng').isFloat().withMessage('إحداثيات الموقع غير صحيحة'),
 ];
 
 router.post('/punch-in', punchValidators, validate, punchIn);
@@ -33,7 +33,7 @@ router.get('/all', authorize('admin'), getAllAttendance);
 router.patch(
   '/:id/validate',
   authorize('manager', 'admin'),
-  [body('status').isIn(['Valid', 'Invalid']).withMessage("status must be 'Valid' or 'Invalid'")],
+  [body('status').isIn(['Valid', 'Invalid']).withMessage('نتيجة التحقق يجب أن تكون "صحيح" أو "غير صحيح"')],
   validate,
   validateAttendance
 );

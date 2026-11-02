@@ -6,7 +6,12 @@ import StatusBadge from '../components/StatusBadge';
 import SelfieModal from '../components/SelfieModal';
 import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
-import { formatTime, todayStr } from '../utils/format';
+import PageHeader from '../components/PageHeader';
+import Loading from '../components/Loading';
+import { formatHours, formatTime, todayStr } from '../utils/format';
+import { statusLabel } from '../utils/labels';
+
+const TITLES = { employee: 'تقاريري', manager: 'تقارير الفريق', admin: 'تقارير النظام' };
 
 export default function Reports() {
   const user = useSelector(selectCurrentUser);
@@ -14,41 +19,48 @@ export default function Reports() {
   const [modalSrc, setModalSrc] = useState(null);
 
   const { data, isLoading } = useGetDailyReportQuery(range);
+  const title = TITLES[user?.role] || 'التقارير';
 
   const columns = [
-    { key: 'name', label: 'Name', value: (r) => r.name },
-    { key: 'date', label: 'Date', value: (r) => r.date },
-    { key: 'punchIn', label: 'Punch In', value: (r) => formatTime(r.punchInTime) },
-    { key: 'punchOut', label: 'Punch Out', value: (r) => formatTime(r.punchOutTime) },
+    { key: 'name', label: 'الاسم', value: (r) => r.name },
+    { key: 'date', label: 'التاريخ', value: (r) => r.date },
+    { key: 'punchIn', label: 'وقت الحضور', value: (r) => formatTime(r.punchInTime) },
+    { key: 'punchOut', label: 'وقت الانصراف', value: (r) => formatTime(r.punchOutTime) },
     {
       key: 'location',
-      label: 'Location',
+      label: 'الموقع',
       value: (r) => (r.location ? `${r.location.lat.toFixed(3)}, ${r.location.lng.toFixed(3)}` : '-'),
+      render: (r) => (
+        <span dir="ltr">{r.location ? `${r.location.lat.toFixed(3)}, ${r.location.lng.toFixed(3)}` : '-'}</span>
+      ),
     },
-    { key: 'totalHours', label: 'Hours', value: (r) => `${r.totalHours || 0}h` },
-    { key: 'status', label: 'Status', value: (r) => r.status, render: (r) => <StatusBadge status={r.status} /> },
+    { key: 'totalHours', label: 'الساعات', value: (r) => formatHours(r.totalHours) },
+    { key: 'status', label: 'الحالة', value: (r) => statusLabel(r.status), render: (r) => <StatusBadge status={r.status} /> },
     {
       key: 'validation',
-      label: 'Validation',
-      value: (r) => r.validationStatus || 'Pending',
+      label: 'التحقق',
+      value: (r) => statusLabel(r.validationStatus || 'Pending'),
       render: (r) => <StatusBadge status={r.validationStatus || 'Pending'} />,
     },
     {
       key: 'selfie',
-      label: 'Selfie',
+      label: 'الصورة',
       value: () => '',
       render: (r) =>
         r.punchInSelfie && (
-          <img className="selfie-thumb" src={r.punchInSelfie} alt="selfie" onClick={() => setModalSrc(r.punchInSelfie)} />
+          <img
+            className="selfie-thumb"
+            src={r.punchInSelfie}
+            alt="صورة الحضور"
+            onClick={() => setModalSrc(r.punchInSelfie)}
+          />
         ),
     },
   ];
 
   return (
     <div>
-      <h1 style={{ marginBottom: 20 }}>
-        {user?.role === 'employee' ? 'My Reports' : user?.role === 'manager' ? 'Team Reports' : 'System-wide Reports'}
-      </h1>
+      <PageHeader title={title} />
 
       <DateRangeFilter
         from={range.from}
@@ -59,13 +71,14 @@ export default function Reports() {
       />
 
       {isLoading ? (
-        <p>Loading...</p>
+        <Loading />
       ) : (
         <DataTable
+          exportTitle={title}
           columns={columns}
           rows={data?.report || []}
-          emptyLabel="No records found for the selected filters."
-          searchPlaceholder="Search reports..."
+          emptyLabel="لا توجد سجلات للفترة المحددة."
+          searchPlaceholder="ابحث في التقرير..."
           fileName="attendance-report"
           rowKey={(row, i) => row.id || i}
         />

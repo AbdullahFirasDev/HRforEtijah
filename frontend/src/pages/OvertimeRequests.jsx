@@ -2,19 +2,28 @@ import { useMemo, useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
 import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
+import PageHeader from '../components/PageHeader';
+import Field from '../components/Field';
+import Alert from '../components/Alert';
+import Loading from '../components/Loading';
 import {
   useRequestOvertimeMutation,
   useUpdateOvertimeMutation,
   useGetMyOvertimeQuery,
 } from '../features/api/overtimeApi';
-import { todayStr } from '../utils/format';
+import { formatHours, todayStr } from '../utils/format';
+import { statusLabel } from '../utils/labels';
+import { MIN_OVERTIME_HOURS, hasErrors, validateOvertimeForm } from '../utils/validation';
+
+const EMPTY_FORM = () => ({ date: todayStr(), requestedHours: '', reason: '' });
 
 export default function OvertimeRequests() {
   const { data, isLoading } = useGetMyOvertimeQuery();
   const [requestOvertime, { isLoading: submitting }] = useRequestOvertimeMutation();
   const [updateOvertime, { isLoading: updating }] = useUpdateOvertimeMutation();
 
-  const [form, setForm] = useState({ date: todayStr(), requestedHours: '', reason: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -24,16 +33,26 @@ export default function OvertimeRequests() {
 
   const [range, setRange] = useState({ from: '', to: '' });
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: undefined }));
+    setSuccess('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    const found = validateOvertimeForm(form, todayStr());
+    setErrors(found);
+    if (hasErrors(found)) return;
     try {
       await requestOvertime({ ...form, requestedHours: Number(form.requestedHours) }).unwrap();
-      setSuccess('Overtime request submitted!');
-      setForm({ date: todayStr(), requestedHours: '', reason: '' });
+      setSuccess('تم إرسال طلب العمل الإضافي، وسيظهر في القائمة بحالة "قيد الانتظار".');
+      setForm(EMPTY_FORM());
     } catch (err) {
-      setError(err?.data?.message || 'Failed to submit request.');
+      setError(err?.data?.message || 'تعذر إرسال الطلب. حاول مرة أخرى.');
     }
   };
 
@@ -50,6 +69,11 @@ export default function OvertimeRequests() {
 
   const saveEdit = async (id) => {
     setEditError('');
+    const found = validateOvertimeForm(editForm, todayStr());
+    if (hasErrors(found)) {
+      setEditError(Object.values(found).filter(Boolean).join('، '));
+      return;
+    }
     try {
       await updateOvertime({
         id,
@@ -59,7 +83,7 @@ export default function OvertimeRequests() {
       }).unwrap();
       setEditingId(null);
     } catch (err) {
-      setEditError(err?.data?.message || 'Failed to update request.');
+      setEditError(err?.data?.message || 'تعذر حفظ التعديل. حاول مرة أخرى.');
     }
   };
 
@@ -71,16 +95,18 @@ export default function OvertimeRequests() {
   const columns = [
     {
       key: 'date',
-      label: 'Date',
+      label: 'التاريخ',
       value: (r) => r.date,
       render: (r) =>
         editingId === r._id ? (
           <input
             type="date"
+            className="input-sm"
+            aria-label="تاريخ الطلب"
             max={todayStr()}
             value={editForm.date}
             onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-            style={{ marginBottom: 0, minWidth: 140 }}
+            style={{ minWidth: 150 }}
           />
         ) : (
           r.date
@@ -88,61 +114,61 @@ export default function OvertimeRequests() {
     },
     {
       key: 'requestedHours',
-      label: 'Hours',
-      value: (r) => `${r.requestedHours}h`,
+      label: 'الساعات',
+      value: (r) => formatHours(r.requestedHours),
       render: (r) =>
         editingId === r._id ? (
           <input
             type="number"
-            min="0.5"
+            className="input-sm"
+            aria-label="عدد الساعات"
+            min={MIN_OVERTIME_HOURS}
             step="0.5"
             value={editForm.requestedHours}
             onChange={(e) => setEditForm({ ...editForm, requestedHours: e.target.value })}
-            style={{ marginBottom: 0, width: 70 }}
+            style={{ width: 90 }}
           />
         ) : (
-          `${r.requestedHours}h`
+          formatHours(r.requestedHours)
         ),
     },
     {
       key: 'reason',
-      label: 'Reason',
+      label: 'السبب',
       value: (r) => r.reason,
+      wrap: true,
       render: (r) =>
         editingId === r._id ? (
           <input
+            className="input-sm"
+            aria-label="سبب الطلب"
             value={editForm.reason}
             onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
-            style={{ marginBottom: 0, minWidth: 180 }}
+            style={{ minWidth: 180 }}
           />
         ) : (
           r.reason
         ),
     },
-    { key: 'status', label: 'Status', value: (r) => r.status, render: (r) => <StatusBadge status={r.status} /> },
-    { key: 'reviewRemarks', label: 'Remarks', value: (r) => r.reviewRemarks || '-', render: (r) => r.reviewRemarks || '-' },
+    { key: 'status', label: 'الحالة', value: (r) => statusLabel(r.status), render: (r) => <StatusBadge status={r.status} /> },
+    { key: 'reviewRemarks', label: 'ملاحظات المراجع', value: (r) => r.reviewRemarks || '-', wrap: true },
     {
       key: 'action',
-      label: 'Action',
+      label: 'الإجراء',
       value: () => '',
       render: (r) =>
         editingId === r._id ? (
-          <span style={{ whiteSpace: 'nowrap' }}>
-            <button
-              className="btn success"
-              disabled={updating}
-              onClick={() => saveEdit(r._id)}
-              style={{ marginRight: 6, padding: '6px 12px' }}
-            >
-              Save
+          <span className="row-actions">
+            <button className="btn success btn-sm" disabled={updating} onClick={() => saveEdit(r._id)}>
+              حفظ
             </button>
-            <button className="btn" disabled={updating} onClick={cancelEdit} style={{ padding: '6px 12px' }}>
-              Cancel
+            <button className="btn secondary btn-sm" disabled={updating} onClick={cancelEdit}>
+              إلغاء
             </button>
           </span>
         ) : r.status === 'Pending' ? (
-          <button className="btn" onClick={() => startEdit(r)} style={{ padding: '6px 12px' }}>
-            Edit
+          <button className="btn secondary btn-sm" onClick={() => startEdit(r)}>
+            تعديل
           </button>
         ) : (
           '-'
@@ -152,39 +178,56 @@ export default function OvertimeRequests() {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 20 }}>Overtime Requests</h1>
+      <PageHeader title="طلبات العمل الإضافي" />
 
-      <div className="card" style={{ maxWidth: 480 }}>
-        <h3 className="card-title">Request Overtime</h3>
-        <form onSubmit={handleSubmit}>
-          <label>Date</label>
-          <input
-            type="date"
-            max={todayStr()}
-            value={form.date}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
+      <div className="card card-narrow">
+        <h3 className="card-title">طلب عمل إضافي</h3>
+        <form onSubmit={handleSubmit} noValidate>
+          <Field id="ot-date" label="التاريخ" required hint="يوم سجّلت فيه حضورك، ولا يمكن اختيار تاريخ مستقبلي" error={errors.date}>
+            <input
+              id="ot-date"
+              type="date"
+              name="date"
+              max={todayStr()}
+              value={form.date}
+              onChange={handleChange}
+              aria-invalid={!!errors.date}
+            />
+          </Field>
+          <Field
+            id="ot-hours"
+            label="عدد الساعات"
             required
-          />
-          <label>Requested Hours</label>
-          <input
-            type="number"
-            min="0.5"
-            step="0.5"
-            value={form.requestedHours}
-            onChange={(e) => setForm({ ...form, requestedHours: e.target.value })}
-            required
-          />
-          <label>Reason</label>
-          <textarea
-            rows={3}
-            value={form.reason}
-            onChange={(e) => setForm({ ...form, reason: e.target.value })}
-            required
-          />
-          {error && <p className="error-text">{error}</p>}
-          {success && <p className="success-text">{success}</p>}
-          <button className="btn" disabled={submitting}>
-            {submitting ? 'Submitting...' : 'Submit Request'}
+            hint={`بحد أدنى ${MIN_OVERTIME_HOURS} ساعة، وبزيادات نصف ساعة`}
+            error={errors.requestedHours}
+          >
+            <input
+              id="ot-hours"
+              type="number"
+              name="requestedHours"
+              inputMode="decimal"
+              min={MIN_OVERTIME_HOURS}
+              step="0.5"
+              value={form.requestedHours}
+              onChange={handleChange}
+              aria-invalid={!!errors.requestedHours}
+            />
+          </Field>
+          <Field id="ot-reason" label="السبب" required error={errors.reason}>
+            <textarea
+              id="ot-reason"
+              name="reason"
+              rows={3}
+              placeholder="اكتب سبب العمل الإضافي"
+              value={form.reason}
+              onChange={handleChange}
+              aria-invalid={!!errors.reason}
+            />
+          </Field>
+          <Alert type="error">{error}</Alert>
+          <Alert type="success">{success}</Alert>
+          <button type="submit" className="btn btn-block" disabled={submitting}>
+            {submitting ? 'جارٍ الإرسال...' : 'إرسال الطلب'}
           </button>
         </form>
       </div>
@@ -197,16 +240,19 @@ export default function OvertimeRequests() {
         onClear={() => setRange({ from: '', to: '' })}
       />
 
-      {editError && <p className="error-text">{editError}</p>}
+      <Alert type="error" onClose={() => setEditError('')}>
+        {editError}
+      </Alert>
       {isLoading ? (
-        <p>Loading...</p>
+        <Loading />
       ) : (
         <DataTable
-          title="My Requests"
+          title="طلباتي"
+          exportTitle="طلبات العمل الإضافي"
           columns={columns}
           rows={rows}
-          emptyLabel="No overtime requests yet."
-          searchPlaceholder="Search my requests..."
+          emptyLabel="لا توجد طلبات عمل إضافي بعد."
+          searchPlaceholder="ابحث في طلباتي..."
           fileName="my-overtime-requests"
         />
       )}

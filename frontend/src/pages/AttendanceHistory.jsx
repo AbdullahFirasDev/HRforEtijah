@@ -4,7 +4,10 @@ import StatusBadge from '../components/StatusBadge';
 import SelfieModal from '../components/SelfieModal';
 import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
-import { formatTime } from '../utils/format';
+import PageHeader from '../components/PageHeader';
+import Loading from '../components/Loading';
+import { formatHours, formatTime } from '../utils/format';
+import { statusLabel } from '../utils/labels';
 
 export default function AttendanceHistory() {
   const [range, setRange] = useState({ from: '', to: '' });
@@ -12,43 +15,48 @@ export default function AttendanceHistory() {
   const [modalSrc, setModalSrc] = useState(null);
 
   const columns = [
-    { key: 'date', label: 'Date', value: (r) => r.date },
-    { key: 'punchIn', label: 'Punch In', value: (r) => formatTime(r.punchIn?.time), render: (r) => formatTime(r.punchIn?.time) },
-    { key: 'punchOut', label: 'Punch Out', value: (r) => formatTime(r.punchOut?.time), render: (r) => formatTime(r.punchOut?.time) },
-    { key: 'totalHours', label: 'Hours', value: (r) => `${r.totalHours || 0}h` },
-    { key: 'status', label: 'Status', value: (r) => r.status, render: (r) => <StatusBadge status={r.status} /> },
+    { key: 'date', label: 'التاريخ', value: (r) => r.date },
+    { key: 'punchIn', label: 'وقت الحضور', value: (r) => formatTime(r.punchIn?.time) },
+    { key: 'punchOut', label: 'وقت الانصراف', value: (r) => formatTime(r.punchOut?.time) },
+    { key: 'totalHours', label: 'الساعات', value: (r) => formatHours(r.totalHours) },
+    { key: 'status', label: 'الحالة', value: (r) => statusLabel(r.status), render: (r) => <StatusBadge status={r.status} /> },
     {
       key: 'validation',
-      label: 'Validation',
-      value: (r) => r.validation?.status || 'Pending',
+      label: 'التحقق',
+      value: (r) => statusLabel(r.validation?.status || 'Pending'),
       render: (r) => <StatusBadge status={r.validation?.status || 'Pending'} />,
     },
     {
       key: 'selfies',
-      label: 'Selfies',
+      label: 'الصور',
       value: () => '',
-      render: (r) => (
-        <>
-          {r.punchIn?.selfie && (
-            <img
-              className="selfie-thumb"
-              src={r.punchIn.selfie}
-              alt="in"
-              onClick={() => setModalSrc(r.punchIn.selfie)}
-              style={{ marginRight: 6 }}
-            />
-          )}
-          {r.punchOut?.selfie && (
-            <img className="selfie-thumb" src={r.punchOut.selfie} alt="out" onClick={() => setModalSrc(r.punchOut.selfie)} />
-          )}
-        </>
-      ),
+      render: (r) =>
+        (r.punchIn?.selfie || r.punchOut?.selfie) && (
+          <span className="selfie-pair">
+            {r.punchIn?.selfie && (
+              <img
+                className="selfie-thumb"
+                src={r.punchIn.selfie}
+                alt="صورة الحضور"
+                onClick={() => setModalSrc(r.punchIn.selfie)}
+              />
+            )}
+            {r.punchOut?.selfie && (
+              <img
+                className="selfie-thumb"
+                src={r.punchOut.selfie}
+                alt="صورة الانصراف"
+                onClick={() => setModalSrc(r.punchOut.selfie)}
+              />
+            )}
+          </span>
+        ),
     },
   ];
 
   return (
     <div>
-      <h1 style={{ marginBottom: 20 }}>My Attendance History</h1>
+      <PageHeader title="سجل حضوري" />
 
       <DateRangeFilter
         from={range.from}
@@ -59,13 +67,14 @@ export default function AttendanceHistory() {
       />
 
       {isLoading ? (
-        <p>Loading...</p>
+        <Loading />
       ) : (
         <DataTable
+          exportTitle="سجل حضوري"
           columns={columns}
           rows={data?.records || []}
-          emptyLabel="No attendance records found."
-          searchPlaceholder="Search attendance..."
+          emptyLabel="لا توجد سجلات حضور."
+          searchPlaceholder="ابحث في السجل..."
           fileName="my-attendance-history"
         />
       )}

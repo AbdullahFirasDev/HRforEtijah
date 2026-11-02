@@ -3,95 +3,71 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useRegisterMutation, useGetManagersListQuery } from '../features/api/authApi';
 import { setCredentials } from '../features/auth/authSlice';
+import AuthLayout from '../components/AuthLayout';
+import AccountFields from '../components/AccountFields';
+import Alert from '../components/Alert';
+import { MIN_PASSWORD, hasErrors, updateAccountForm, validateAccountForm } from '../utils/validation';
 
 export default function Signup() {
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'employee', managerId: '' });
+  const [errors, setErrors] = useState({});
+  const [error, setError] = useState('');
   const [register, { isLoading }] = useRegisterMutation();
   const { data: managersData } = useGetManagersListQuery();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'role' && value !== 'employee') {
-      // Manager/Admin accounts don't report to anyone through this form.
-      setForm({ ...form, role: value, managerId: '' });
-    } else {
-      setForm({ ...form, [name]: value });
-    }
+    setForm((f) => updateAccountForm(f, { name, value }));
+    setErrors((prev) => ({ ...prev, [name]: undefined, ...(name === 'role' && { managerId: undefined }) }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const found = validateAccountForm(form);
+    setErrors(found);
+    if (hasErrors(found)) return;
     try {
       const res = await register(form).unwrap();
       dispatch(setCredentials(res));
       navigate(`/${res.user.role}`);
     } catch (err) {
-      setError(err?.data?.message || 'Signup failed. Please try again.');
+      setError(err?.data?.message || 'تعذر إنشاء الحساب. حاول مرة أخرى.');
     }
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <h1>Create account</h1>
-        <p className="sub">Join the Attendance Management System</p>
-        <form onSubmit={handleSubmit}>
-          <label>Full Name</label>
-          <input name="name" value={form.name} onChange={handleChange} required />
-          <label>Email</label>
-          <input type="email" name="email" value={form.email} onChange={handleChange} required />
-          <label>Password</label>
-          <input
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            minLength={6}
-            required
-          />
-          <label>Role</label>
-          <select name="role" value={form.role} onChange={handleChange}>
-            <option value="employee">Employee</option>
-            <option value="manager">Manager</option>
-            <option value="admin">Admin</option>
-          </select>
-          {form.role === 'employee' && (
-            <>
-              <label>Assign Manager</label>
-              <select name="managerId" value={form.managerId} onChange={handleChange} required>
-                <option value="" disabled>
-                  Select a manager
-                </option>
-                {managersData?.managers?.map((m) => (
-                  <option key={m._id} value={m._id}>
-                    {m.name} ({m.role})
-                  </option>
-                ))}
-              </select>
-              {managersData && managersData.managers?.length === 0 && (
-                <p className="error-text">
-                  No managers/admins exist yet. Ask an admin to sign up first before registering employees.
-                </p>
-              )}
-            </>
-          )}
-          {error && <p className="error-text">{error}</p>}
-          <button className="btn" style={{ width: '100%' }} disabled={isLoading}>
-            {isLoading ? 'Creating account...' : 'Sign Up'}
-          </button>
-        </form>
-        <p style={{ marginTop: 16, fontSize: 13 }}>
-          Already have an account? <Link to="/login">Login</Link>
-        </p>
-        <p style={{ marginTop: 10, fontSize: 11, color: '#6b7280' }}>
-          Note: Employees must select an existing Manager/Admin to report to. Register a Manager or
-          Admin account first if none exist yet.
-        </p>
-      </div>
-    </div>
+    <AuthLayout
+      title="إنشاء حساب"
+      subtitle="انضم إلى نظام الاتجاه للحضور"
+      footer={
+        <>
+          <p className="auth-footer">
+            لديك حساب بالفعل؟ <Link to="/login">تسجيل الدخول</Link>
+          </p>
+          <p className="auth-note">
+            ملاحظة: يجب على الموظف اختيار مدير أو مسؤول نظام يتبع له. إن لم يوجد أي مدير بعد، أنشئ حساب مدير أولاً.
+          </p>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} noValidate>
+        <AccountFields
+          idPrefix="signup"
+          form={form}
+          errors={errors}
+          onChange={handleChange}
+          managers={managersData?.managers}
+          passwordLabel="كلمة المرور"
+          passwordHint={`${MIN_PASSWORD} أحرف على الأقل`}
+        />
+        <Alert type="error">{error}</Alert>
+        <button type="submit" className="btn btn-block" disabled={isLoading}>
+          {isLoading ? 'جارٍ إنشاء الحساب...' : 'إنشاء الحساب'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

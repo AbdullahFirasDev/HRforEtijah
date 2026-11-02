@@ -50,7 +50,7 @@ const getMyTeam = asyncHandler(async (req, res) => {
 const updateUser = asyncHandler(async (req, res) => {
   const { role, managerId, isActive } = req.body;
   const user = await User.findById(req.params.id);
-  if (!user) throw new ApiError(404, 'User not found');
+  if (!user) throw new ApiError(404, 'المستخدم غير موجود');
 
   if (role) user.role = role;
   if (managerId !== undefined) user.manager = managerId || null;

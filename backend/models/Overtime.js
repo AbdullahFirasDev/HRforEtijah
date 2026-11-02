@@ -5,7 +5,7 @@ const overtimeSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     attendance: { type: mongoose.Schema.Types.ObjectId, ref: 'Attendance', required: true },
     date: { type: String, required: true },
-    requestedHours: { type: Number, required: true, min: 0.5 },
+    requestedHours: { type: Number, required: true, min: [0.5, 'أقل عدد ساعات مسموح به هو 0.5 ساعة'] },
     reason: { type: String, required: true, trim: true },
     status: {
       type: String,

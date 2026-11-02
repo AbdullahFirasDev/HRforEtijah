@@ -16,24 +16,24 @@ const requestOvertime = asyncHandler(async (req, res) => {
   const date = req.body.date || todayStr();
 
   if (!requestedHours || requestedHours <= 0) {
-    throw new ApiError(400, 'requestedHours must be a positive number');
+    throw new ApiError(400, 'عدد الساعات يجب أن يكون رقماً أكبر من صفر');
   }
   if (!reason || !reason.trim()) {
-    throw new ApiError(400, 'A reason is required for the overtime request');
+    throw new ApiError(400, 'يجب كتابة سبب طلب العمل الإضافي');
   }
   if (!DATE_RE.test(date)) {
-    throw new ApiError(400, 'date must be in YYYY-MM-DD format');
+    throw new ApiError(400, 'صيغة التاريخ غير صحيحة');
   }
   if (date > todayStr()) {
-    throw new ApiError(400, 'Cannot request overtime for a future date');
+    throw new ApiError(400, 'لا يمكن طلب عمل إضافي لتاريخ مستقبلي');
   }
 
   const attendance = await Attendance.findOne({ user: req.user._id, date });
   if (!attendance || !attendance.punchIn?.time) {
-    throw new ApiError(400, 'You must punch in on that date before requesting overtime');
+    throw new ApiError(400, 'لا يوجد تسجيل حضور لك في هذا التاريخ، ويجب تسجيل الحضور قبل طلب العمل الإضافي');
   }
   if (attendance.overtimeRequested) {
-    throw new ApiError(409, 'Overtime has already been requested for that date');
+    throw new ApiError(409, 'يوجد طلب عمل إضافي لهذا التاريخ مسبقاً');
   }
 
   const overtime = await Overtime.create({
@@ -58,41 +58,41 @@ const updateOvertime = asyncHandler(async (req, res) => {
   const { requestedHours, reason, date } = req.body;
 
   const overtime = await Overtime.findById(req.params.id);
-  if (!overtime) throw new ApiError(404, 'Overtime request not found');
+  if (!overtime) throw new ApiError(404, 'طلب العمل الإضافي غير موجود');
   if (String(overtime.user) !== String(req.user._id)) {
-    throw new ApiError(403, 'You can only edit your own overtime requests');
+    throw new ApiError(403, 'يمكنك تعديل طلباتك فقط');
   }
   if (overtime.status !== 'Pending') {
-    throw new ApiError(409, 'Only pending requests can be edited');
+    throw new ApiError(409, 'يمكن تعديل الطلبات التي ما زالت قيد الانتظار فقط');
   }
 
   if (requestedHours !== undefined) {
     if (!requestedHours || requestedHours <= 0) {
-      throw new ApiError(400, 'requestedHours must be a positive number');
+      throw new ApiError(400, 'عدد الساعات يجب أن يكون رقماً أكبر من صفر');
     }
     overtime.requestedHours = requestedHours;
   }
   if (reason !== undefined) {
     if (!reason.trim()) {
-      throw new ApiError(400, 'A reason is required for the overtime request');
+      throw new ApiError(400, 'يجب كتابة سبب طلب العمل الإضافي');
     }
     overtime.reason = reason;
   }
 
   if (date !== undefined && date !== overtime.date) {
     if (!DATE_RE.test(date)) {
-      throw new ApiError(400, 'date must be in YYYY-MM-DD format');
+      throw new ApiError(400, 'صيغة التاريخ غير صحيحة');
     }
     if (date > todayStr()) {
-      throw new ApiError(400, 'Cannot request overtime for a future date');
+      throw new ApiError(400, 'لا يمكن طلب عمل إضافي لتاريخ مستقبلي');
     }
 
     const newAttendance = await Attendance.findOne({ user: req.user._id, date });
     if (!newAttendance || !newAttendance.punchIn?.time) {
-      throw new ApiError(400, 'You must punch in on that date before requesting overtime');
+      throw new ApiError(400, 'لا يوجد تسجيل حضور لك في هذا التاريخ، ويجب تسجيل الحضور قبل طلب العمل الإضافي');
     }
     if (newAttendance.overtimeRequested && String(newAttendance._id) !== String(overtime.attendance)) {
-      throw new ApiError(409, 'Overtime has already been requested for that date');
+      throw new ApiError(409, 'يوجد طلب عمل إضافي لهذا التاريخ مسبقاً');
     }
 
     const oldAttendance = await Attendance.findById(overtime.attendance);
@@ -162,17 +162,17 @@ const getAllOvertimeForReviewer = asyncHandler(async (req, res) => {
 const reviewOvertime = asyncHandler(async (req, res) => {
   const { status, reviewRemarks } = req.body;
   if (!['Approved', 'Rejected'].includes(status)) {
-    throw new ApiError(400, "Status must be 'Approved' or 'Rejected'");
+    throw new ApiError(400, 'الحالة يجب أن تكون "مقبول" أو "مرفوض"');
   }
 
   const overtime = await Overtime.findById(req.params.id).populate('user', 'manager');
-  if (!overtime) throw new ApiError(404, 'Overtime request not found');
+  if (!overtime) throw new ApiError(404, 'طلب العمل الإضافي غير موجود');
 
   if (req.user.role === 'manager' && String(overtime.user.manager) !== String(req.user._id)) {
-    throw new ApiError(403, 'You can only review overtime requests for your own team');
+    throw new ApiError(403, 'يمكنك مراجعة طلبات أعضاء فريقك فقط');
   }
   if (overtime.status !== 'Pending') {
-    throw new ApiError(409, 'This request has already been reviewed');
+    throw new ApiError(409, 'تمت مراجعة هذا الطلب مسبقاً');
   }
 
   overtime.status = status;

@@ -10,6 +10,13 @@ import StatusBadge from '../components/StatusBadge';
 import SelfieModal from '../components/SelfieModal';
 import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
+import PageHeader from '../components/PageHeader';
+import Alert from '../components/Alert';
+import Loading from '../components/Loading';
+import { statusLabel } from '../utils/labels';
+
+const locationText = (r) =>
+  r.punchIn?.location ? `${r.punchIn.location.lat.toFixed(3)}, ${r.punchIn.location.lng.toFixed(3)}` : '-';
 
 export default function AttendanceValidation() {
   const user = useSelector(selectCurrentUser);
@@ -24,87 +31,92 @@ export default function AttendanceValidation() {
   const [remarksMap, setRemarksMap] = useState({});
   const [modalSrc, setModalSrc] = useState(null);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const handleValidate = async (id, status) => {
+  const handleValidate = async (r, status) => {
     setError('');
+    setSuccess('');
     try {
-      await validateAttendance({ id, status, remarks: remarksMap[id] || '' }).unwrap();
+      await validateAttendance({ id: r._id, status, remarks: remarksMap[r._id] || '' }).unwrap();
+      setSuccess(`تم اعتماد سجل ${r.user?.name || 'الموظف'} بتاريخ ${r.date} على أنه "${statusLabel(status)}".`);
     } catch (err) {
-      setError(err?.data?.message || 'Failed to validate attendance.');
+      setError(err?.data?.message || 'تعذر حفظ نتيجة التحقق. حاول مرة أخرى.');
     }
   };
 
   const columns = [
-    { key: 'employee', label: 'Employee', value: (r) => r.user?.name },
-    { key: 'date', label: 'Date', value: (r) => r.date },
+    { key: 'employee', label: 'الموظف', value: (r) => r.user?.name },
+    { key: 'date', label: 'التاريخ', value: (r) => r.date },
     {
-      key: 'selfieIn',
-      label: 'Selfie (In)',
+      key: 'selfies',
+      label: 'الصور (حضور / انصراف)',
       value: () => '',
       render: (r) =>
-        r.punchIn?.selfie && (
-          <img className="selfie-thumb" src={r.punchIn.selfie} alt="in" onClick={() => setModalSrc(r.punchIn.selfie)} />
-        ),
-    },
-    {
-      key: 'selfieOut',
-      label: 'Selfie (Out)',
-      value: () => '',
-      render: (r) =>
-        r.punchOut?.selfie && (
-          <img className="selfie-thumb" src={r.punchOut.selfie} alt="out" onClick={() => setModalSrc(r.punchOut.selfie)} />
+        (r.punchIn?.selfie || r.punchOut?.selfie) && (
+          <span className="selfie-pair">
+            {r.punchIn?.selfie && (
+              <img
+                className="selfie-thumb"
+                src={r.punchIn.selfie}
+                alt="صورة الحضور"
+                title="صورة الحضور"
+                onClick={() => setModalSrc(r.punchIn.selfie)}
+              />
+            )}
+            {r.punchOut?.selfie && (
+              <img
+                className="selfie-thumb"
+                src={r.punchOut.selfie}
+                alt="صورة الانصراف"
+                title="صورة الانصراف"
+                onClick={() => setModalSrc(r.punchOut.selfie)}
+              />
+            )}
+          </span>
         ),
     },
     {
       key: 'location',
-      label: 'Location',
-      value: (r) => (r.punchIn?.location ? `${r.punchIn.location.lat.toFixed(3)}, ${r.punchIn.location.lng.toFixed(3)}` : '-'),
+      label: 'الموقع',
+      value: locationText,
       render: (r) => (
-        <span style={{ fontSize: 12 }}>
-          {r.punchIn?.location ? `${r.punchIn.location.lat.toFixed(3)}, ${r.punchIn.location.lng.toFixed(3)}` : '-'}
+        <span dir="ltr" style={{ fontSize: 13 }}>
+          {locationText(r)}
         </span>
       ),
     },
     {
       key: 'validation',
-      label: 'Validation',
-      value: (r) => r.validation?.status || 'Pending',
+      label: 'التحقق',
+      value: (r) => statusLabel(r.validation?.status || 'Pending'),
       render: (r) => <StatusBadge status={r.validation?.status || 'Pending'} />,
     },
     {
       key: 'remarks',
-      label: 'Remarks',
+      label: 'الملاحظات',
       value: (r) => remarksMap[r._id] ?? r.validation?.remarks ?? '',
       render: (r) => (
         <input
-          placeholder="Add remarks"
+          className="input-sm"
+          placeholder="أضف ملاحظة"
+          aria-label={`ملاحظة على سجل ${r.user?.name || ''}`}
           value={remarksMap[r._id] ?? r.validation?.remarks ?? ''}
           onChange={(e) => setRemarksMap({ ...remarksMap, [r._id]: e.target.value })}
-          style={{ marginBottom: 0, minWidth: 140 }}
+          style={{ minWidth: 140 }}
         />
       ),
     },
     {
       key: 'action',
-      label: 'Action',
+      label: 'الإجراء',
       value: () => '',
       render: (r) => (
-        <span style={{ whiteSpace: 'nowrap' }}>
-          <button
-            className="btn success"
-            disabled={validating}
-            onClick={() => handleValidate(r._id, 'Valid')}
-            style={{ marginRight: 6, padding: '6px 12px' }}
-          >
-            Valid
+        <span className="row-actions">
+          <button className="btn success btn-sm" disabled={validating} onClick={() => handleValidate(r, 'Valid')}>
+            صحيح
           </button>
-          <button
-            className="btn danger"
-            disabled={validating}
-            onClick={() => handleValidate(r._id, 'Invalid')}
-            style={{ padding: '6px 12px' }}
-          >
-            Invalid
+          <button className="btn danger btn-sm" disabled={validating} onClick={() => handleValidate(r, 'Invalid')}>
+            غير صحيح
           </button>
         </span>
       ),
@@ -113,8 +125,13 @@ export default function AttendanceValidation() {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 20 }}>Validate Attendance Selfies</h1>
-      {error && <p className="error-text">{error}</p>}
+      <PageHeader title="التحقق من صور الحضور" subtitle="قارن صور الحضور والانصراف والموقع، ثم اعتمد السجل بأنه صحيح أو غير صحيح." />
+      <Alert type="error" onClose={() => setError('')}>
+        {error}
+      </Alert>
+      <Alert type="success" onClose={() => setSuccess('')}>
+        {success}
+      </Alert>
 
       <DateRangeFilter
         from={range.from}
@@ -125,13 +142,14 @@ export default function AttendanceValidation() {
       />
 
       {isLoading ? (
-        <p>Loading...</p>
+        <Loading />
       ) : (
         <DataTable
+          exportTitle="التحقق من صور الحضور"
           columns={columns}
           rows={data?.records || []}
-          emptyLabel="No records to validate."
-          searchPlaceholder="Search records..."
+          emptyLabel="لا توجد سجلات للتحقق."
+          searchPlaceholder="ابحث في السجلات..."
           fileName="attendance-validation"
         />
       )}
