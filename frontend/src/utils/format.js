@@ -49,4 +49,22 @@ export const formatMonthYear = (year, month) =>
 // e.g. "8.5 س" (س = ساعة)
 export const formatHours = (value) => `${value || 0} س`;
 
+// A wall-clock "HH:mm" (working hours), e.g. "09:00 ص"
+export const formatClock = (hhmm) => {
+  if (!hhmm) return '-';
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: true });
+};
+
+// e.g. "45 د", "1 س 15 د"
+export const formatMinutes = (minutes) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m} د`;
+  return m ? `${h} س ${m} د` : `${h} س`;
+};
+
+// e.g. "350 م", "2.4 كم"
+export const formatDistance = (meters) => (meters < 1000 ? `${meters} م` : `${(meters / 1000).toFixed(1)} كم`);
+
 export const todayStr = () => new Date().toLocaleDateString('en-CA');

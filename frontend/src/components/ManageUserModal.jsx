@@ -10,14 +10,17 @@ import {
 } from '../features/api/userApi';
 import Field from './Field';
 import Alert from './Alert';
+import WorkScheduleFields from './WorkScheduleFields';
 import { formatDate } from '../utils/format';
 import { roleLabel } from '../utils/labels';
-import { MIN_PASSWORD, hasErrors, validateNewPassword } from '../utils/validation';
+import { MIN_PASSWORD, hasErrors, validateNewPassword, validateWorkSchedule } from '../utils/validation';
+import { workFormFrom, workPayload } from '../utils/workSchedule';
 
 const EMPTY_PASSWORD = { password: '', confirm: '' };
 
-// Admin-only actions on one account: new password, device reset,
-// activate/deactivate, and delete (moving the person's team elsewhere first).
+// Admin-only actions on one account: working hours (employees), new password,
+// device reset, activate/deactivate, and delete (moving the person's team
+// elsewhere first).
 export default function ManageUserModal({ user, onClose, onDeleted }) {
   const me = useSelector(selectCurrentUser);
   const isSelf = me?.id === user.id;
@@ -30,6 +33,8 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
   const [updateUser, { isLoading: updating }] = useUpdateUserMutation();
   const [deleteUser, { isLoading: deleting }] = useDeleteUserMutation();
 
+  const [work, setWork] = useState(() => workFormFrom(user));
+  const [workErrors, setWorkErrors] = useState({});
   const [pw, setPw] = useState(EMPTY_PASSWORD);
   const [pwErrors, setPwErrors] = useState({});
   const [feedback, setFeedback] = useState(null);
@@ -60,6 +65,19 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
       setFeedback({ type: 'error', text: err?.data?.message || 'تعذر تنفيذ الإجراء. حاول مرة أخرى.' });
       return false;
     }
+  };
+
+  const handleWorkChange = (next) => {
+    setWork(next);
+    setWorkErrors({});
+  };
+
+  const saveWork = (e) => {
+    e.preventDefault();
+    const found = validateWorkSchedule(work);
+    setWorkErrors(found);
+    if (hasErrors(found)) return;
+    run(() => updateUser({ id: user.id, ...workPayload(work) }), `تم حفظ دوام ${user.name}.`);
   };
 
   const handlePasswordChange = (e) => {
@@ -121,6 +139,22 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
             </Alert>
           )}
         </div>
+
+        {user.role === 'employee' && (
+          <section className="manage-section">
+            <h3>الدوام والاستثناءات</h3>
+            <p className="form-note">
+              تُعتمد ساعات الدوام ويوم الإجازة لكل يوم عند أول تسجيل حضور فيه، فلا يتغير ما سُجّل سابقاً. أما السماح بتعدد
+              الحضور فيسري فوراً.
+            </p>
+            <form onSubmit={saveWork} noValidate>
+              <WorkScheduleFields idPrefix="manage-work" value={work} errors={workErrors} onChange={handleWorkChange} />
+              <button type="submit" className="btn" disabled={updating}>
+                {updating ? 'جارٍ الحفظ...' : 'حفظ الدوام'}
+              </button>
+            </form>
+          </section>
+        )}
 
         <section className="manage-section">
           <h3>تغيير كلمة المرور</h3>

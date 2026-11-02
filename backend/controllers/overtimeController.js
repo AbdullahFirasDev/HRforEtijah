@@ -3,9 +3,9 @@ const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { todayIST } = require('../utils/dateUtils');
+const { todayLocal } = require('../utils/dateUtils');
 
-const todayStr = todayIST;
+const todayStr = todayLocal;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // @desc  Employee requests overtime for a given day's attendance (defaults to today)

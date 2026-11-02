@@ -12,6 +12,17 @@ import Alert from '../components/Alert';
 import Loading from '../components/Loading';
 import { formatDate } from '../utils/format';
 import { ROLE_LABELS, roleLabel } from '../utils/labels';
+import { dayNamesText, hoursText } from '../utils/workSchedule';
+
+// Working hours summary for the users table (only employees check in)
+const scheduleLines = (u) => {
+  if (u.role !== 'employee') return null;
+  const days = u.weeklyOffDays?.length ? `الإجازة: ${dayNamesText(u.weeklyOffDays)}` : 'بلا يوم إجازة';
+  return {
+    hours: hoursText(u.workSchedule) || 'بدون دوام ثابت',
+    details: u.allowMultiplePunches ? `${days} · حضور متعدد` : days,
+  };
+};
 
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => (
   <option key={value} value={value}>
@@ -78,7 +89,7 @@ export default function AdminUsers() {
           disabled={u.id === me?.id}
           title={u.id === me?.id ? 'لا يمكنك تغيير دورك بنفسك' : undefined}
           onChange={(e) => handleRoleChange(u, e.target.value)}
-          style={{ minWidth: 140 }}
+          style={{ minWidth: 124 }}
         >
           {ROLE_OPTIONS}
         </select>
@@ -96,13 +107,32 @@ export default function AdminUsers() {
       value: (u) => (u.device ? `${u.device.label} (${formatDate(u.device.registeredAt)})` : 'لم يُسجَّل بعد'),
       render: (u) =>
         u.device ? (
-          <span className="device-info">
+          <span className="cell-stack">
             <strong>{u.device.label}</strong>
             <small>منذ {formatDate(u.device.registeredAt)}</small>
           </span>
         ) : (
           <span className="badge muted">لم يُسجَّل بعد</span>
         ),
+    },
+    {
+      key: 'schedule',
+      label: 'الدوام',
+      value: (u) => {
+        const lines = scheduleLines(u);
+        return lines ? `${lines.hours} (${lines.details})` : '-';
+      },
+      render: (u) => {
+        const lines = scheduleLines(u);
+        return lines ? (
+          <span className="cell-stack">
+            <strong>{lines.hours}</strong>
+            <small>{lines.details}</small>
+          </span>
+        ) : (
+          '-'
+        );
+      },
     },
     { key: 'joined', label: 'تاريخ الإضافة', value: (u) => formatDate(u.createdAt) },
     {
@@ -112,7 +142,7 @@ export default function AdminUsers() {
       render: (u) => (
         <button
           className="btn secondary btn-sm"
-          title="كلمة المرور، الجهاز، التفعيل، الحذف"
+          title="الدوام، كلمة المرور، الجهاز، التفعيل، الحذف"
           onClick={() => {
             setError('');
             setSuccess('');
@@ -129,7 +159,7 @@ export default function AdminUsers() {
     <div>
       <PageHeader
         title="المستخدمون"
-        subtitle="أضف الموظفين وعدّل أدوارهم. من «إدارة» تغيّر كلمة المرور، وتعيد تعيين الجهاز، وتعطّل الحساب أو تحذفه."
+        subtitle="أضف الموظفين وعدّل أدوارهم. من «إدارة» تحدد الدوام ويوم الإجازة، وتغيّر كلمة المرور، وتعيد تعيين الجهاز، وتعطّل الحساب أو تحذفه."
         actions={
           <button
             className="btn"

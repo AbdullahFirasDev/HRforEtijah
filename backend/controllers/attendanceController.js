@@ -2,68 +2,91 @@ const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { calculateHours, deriveStatus, isWithinGeofence } = require('../utils/hours');
-const { todayIST } = require('../utils/dateUtils');
+const { calculateHours, deriveStatus } = require('../utils/hours');
+const { checkPunchLocation, loadGeofence } = require('../utils/geofence');
+const { todayLocal } = require('../utils/dateUtils');
+const { MAX_SESSIONS_PER_DAY, dayPlan, targetHours, lateMinutesAt, earlyLeaveMinutesAt } = require('../utils/schedule');
 
-const todayStr = todayIST;
+const todayStr = todayLocal;
 
-// @desc  Punch in for today
+// @desc  Punch in for today (again, for staff allowed several periods a day)
 // @route POST /api/attendance/punch-in
 // @access Private (employee)
 const punchIn = asyncHandler(async (req, res) => {
-  const { selfie, lat, lng } = req.body;
+  const { selfie, lat, lng, accuracy } = req.body;
 
   if (!selfie) throw new ApiError(400, 'يلزم التقاط صورة مباشرة لتسجيل الحضور');
   if (lat === undefined || lng === undefined) {
     throw new ApiError(400, 'يلزم تحديد موقعك لتسجيل الحضور');
   }
-  if (!isWithinGeofence(lat, lng)) {
-    throw new ApiError(400, 'أنت خارج النطاق الجغرافي المسموح لتسجيل الحضور');
-  }
+  const location = checkPunchLocation(await loadGeofence(), { lat, lng, accuracy }, 'لتسجيل الحضور');
 
   const date = todayStr();
-  const existing = await Attendance.findOne({ user: req.user._id, date });
-  if (existing && existing.punchIn?.time) {
-    throw new ApiError(409, 'لقد سجّلت حضورك اليوم مسبقاً');
+  const now = new Date();
+  const record = (await Attendance.findOne({ user: req.user._id, date })) || new Attendance({ user: req.user._id, date });
+  record.adoptLegacySession();
+
+  const { sessions } = record;
+  if (sessions.length) {
+    if (!sessions[sessions.length - 1].punchOut?.time) {
+      throw new ApiError(409, 'حضورك مسجّل حالياً. سجّل الانصراف أولاً.');
+    }
+    if (!req.user.allowMultiplePunches) {
+      throw new ApiError(409, 'لقد سجّلت حضورك اليوم مسبقاً');
+    }
+    if (sessions.length >= MAX_SESSIONS_PER_DAY) {
+      throw new ApiError(409, `وصلت إلى الحد الأقصى لفترات الحضور في اليوم (${MAX_SESSIONS_PER_DAY} فترات)`);
+    }
+    // Back at work: the day has no last check-out yet
+    record.punchOut = undefined;
+    record.earlyLeaveMinutes = 0;
+  } else {
+    record.schedule = dayPlan(req.user, date);
+    record.punchIn = { time: now, location };
+    record.lateMinutes = lateMinutesAt(record.schedule, now);
   }
 
-  const record =
-    existing ||
-    new Attendance({
-      user: req.user._id,
-      date,
-    });
-
-  record.punchIn = { time: new Date(), selfie, location: { lat, lng } };
+  sessions.push({ punchIn: { time: now, selfie, location } });
   await record.save();
 
   res.status(201).json({ success: true, attendance: record });
 });
 
-// @desc  Punch out for today
+// @desc  Punch out of the open period for today
 // @route POST /api/attendance/punch-out
 // @access Private (employee)
 const punchOut = asyncHandler(async (req, res) => {
-  const { selfie, lat, lng } = req.body;
+  const { selfie, lat, lng, accuracy } = req.body;
 
   if (!selfie) throw new ApiError(400, 'يلزم التقاط صورة مباشرة لتسجيل الانصراف');
   if (lat === undefined || lng === undefined) {
     throw new ApiError(400, 'يلزم تحديد موقعك لتسجيل الانصراف');
   }
+  const location = checkPunchLocation(await loadGeofence(), { lat, lng, accuracy }, 'لتسجيل الانصراف');
 
   const date = todayStr();
   const record = await Attendance.findOne({ user: req.user._id, date });
-  if (!record || !record.punchIn?.time) {
+  record?.adoptLegacySession();
+  const open = record?.sessions[record.sessions.length - 1];
+  if (!open) {
     throw new ApiError(400, 'يجب تسجيل الحضور قبل تسجيل الانصراف');
   }
-  if (record.punchOut?.time) {
-    throw new ApiError(409, 'لقد سجّلت انصرافك اليوم مسبقاً');
+  if (open.punchOut?.time) {
+    throw new ApiError(
+      409,
+      req.user.allowMultiplePunches
+        ? 'لقد سجّلت انصرافك. إن عدت إلى العمل فسجّل حضوراً جديداً أولاً.'
+        : 'لقد سجّلت انصرافك اليوم مسبقاً'
+    );
   }
 
   const now = new Date();
-  record.punchOut = { time: now, selfie, location: { lat, lng } };
-  record.totalHours = calculateHours(record.punchIn.time, now);
-  record.status = deriveStatus(record.totalHours);
+  open.punchOut = { time: now, selfie, location };
+  record.punchOut = { time: now, location };
+  record.totalHours =
+    Math.round(record.sessions.reduce((sum, s) => sum + calculateHours(s.punchIn.time, s.punchOut.time), 0) * 100) / 100;
+  record.status = deriveStatus(record.totalHours, targetHours(record.schedule));
+  record.earlyLeaveMinutes = earlyLeaveMinutesAt(record.schedule, now);
   await record.save();
 
   res.json({ success: true, attendance: record });
@@ -94,8 +117,24 @@ const getMyAttendance = asyncHandler(async (req, res) => {
 // @route GET /api/attendance/today
 // @access Private
 const getTodayStatus = asyncHandler(async (req, res) => {
-  const record = await Attendance.findOne({ user: req.user._id, date: todayStr() });
-  res.json({ success: true, attendance: record || null });
+  const date = todayStr();
+  const record = await Attendance.findOne({ user: req.user._id, date });
+  // Once the day has started, its frozen plan is what lateness was measured against
+  const plan = record?.schedule?.hours != null ? record.schedule : dayPlan(req.user, date);
+
+  res.json({
+    success: true,
+    attendance: record || null,
+    today: {
+      date,
+      start: plan.start || null,
+      end: plan.end || null,
+      targetHours: targetHours(plan),
+      dayOff: !!plan.dayOff,
+      allowMultiplePunches: !!req.user.allowMultiplePunches,
+      maxSessions: MAX_SESSIONS_PER_DAY,
+    },
+  });
 });
 
 // @desc  Get attendance for the manager's team

@@ -25,7 +25,7 @@ export default function useGeolocation() {
       setLoading(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
           setLocation(loc);
           setLoading(false);
           resolve(loc);
@@ -36,7 +36,7 @@ export default function useGeolocation() {
           setLoading(false);
           reject(new Error(msg));
         },
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     });
 

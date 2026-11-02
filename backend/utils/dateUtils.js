@@ -1,12 +1,12 @@
-const IST_TIMEZONE = 'Asia/Kolkata';
+// The office's timezone decides which calendar day a punch belongs to.
+// Cloud hosts run in UTC, so "today" must not come from the server clock.
+// Set APP_TIMEZONE (an IANA name such as Asia/Riyadh) for another office.
+const APP_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Baghdad';
 
-// Returns "today" as YYYY-MM-DD in India Standard Time, regardless of the
-// server host's own timezone (most cloud hosts run in UTC, and using
-// toISOString() there shifts the calendar day for anything punched in
-// before 5:30 AM IST onto the previous date).
-const todayIST = () => {
+// Returns "today" as YYYY-MM-DD in the office's timezone
+const todayLocal = () => {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: IST_TIMEZONE,
+    timeZone: APP_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -15,4 +15,4 @@ const todayIST = () => {
   return `${map.year}-${map.month}-${map.day}`;
 };
 
-module.exports = { todayIST, IST_TIMEZONE };
+module.exports = { todayLocal, APP_TIMEZONE };

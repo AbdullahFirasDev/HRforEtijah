@@ -1,9 +1,9 @@
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
-const { todayIST } = require('../utils/dateUtils');
+const { todayLocal } = require('../utils/dateUtils');
 
-const todayStr = todayIST;
+const todayStr = todayLocal;
 
 // Builds the base query according to the requester's role:
 // employee -> only their own records, manager -> their team, admin -> everyone
@@ -45,21 +45,28 @@ const getDailyReport = asyncHandler(async (req, res) => {
     .populate('user', 'name email role')
     .sort({ date: -1, 'user.name': 1 });
 
-  const report = records.map((r) => ({
-    id: r._id,
-    name: r.user?.name,
-    email: r.user?.email,
-    date: r.date,
-    punchInTime: r.punchIn?.time || null,
-    punchOutTime: r.punchOut?.time || null,
-    punchInSelfie: r.punchIn?.selfie || null,
-    punchOutSelfie: r.punchOut?.selfie || null,
-    location: r.punchIn?.location || null,
-    totalHours: r.totalHours,
-    status: r.status,
-    validationStatus: r.validation?.status,
-    validationRemarks: r.validation?.remarks,
-  }));
+  const report = records.map((r) => {
+    const sessions = r.workSessions();
+    return {
+      id: r._id,
+      name: r.user?.name,
+      email: r.user?.email,
+      date: r.date,
+      punchInTime: r.punchIn?.time || null,
+      punchOutTime: r.punchOut?.time || null,
+      punchInSelfie: sessions[0]?.punchIn?.selfie || null,
+      punchOutSelfie: sessions[sessions.length - 1]?.punchOut?.selfie || null,
+      location: r.punchIn?.location || null,
+      totalHours: r.totalHours,
+      status: r.status,
+      sessionsCount: sessions.length,
+      lateMinutes: r.lateMinutes || 0,
+      earlyLeaveMinutes: r.earlyLeaveMinutes || 0,
+      dayOff: !!r.schedule?.dayOff,
+      validationStatus: r.validation?.status,
+      validationRemarks: r.validation?.remarks,
+    };
+  });
 
   res.json({ success: true, count: report.length, report });
 });
@@ -82,6 +89,10 @@ const exportDailyReportCsv = asyncHandler(async (req, res) => {
     'Longitude',
     'Total Hours',
     'Status',
+    'Periods',
+    'Late (min)',
+    'Early Leave (min)',
+    'Day Off',
     'Validation',
     'Remarks',
   ];
@@ -96,6 +107,10 @@ const exportDailyReportCsv = asyncHandler(async (req, res) => {
     r.punchIn?.location?.lng ?? '',
     r.totalHours ?? 0,
     r.status,
+    r.workSessions().length,
+    r.lateMinutes || 0,
+    r.earlyLeaveMinutes || 0,
+    r.schedule?.dayOff ? 'Yes' : 'No',
     r.validation?.status || 'Pending',
     (r.validation?.remarks || '').replace(/,/g, ';'),
   ]);

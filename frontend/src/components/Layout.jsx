@@ -13,6 +13,7 @@ import {
   IconChart,
   IconUsers,
   IconShieldCheck,
+  IconMapPin,
 } from './icons';
 
 const NAV_ITEMS = {
@@ -35,6 +36,7 @@ const NAV_ITEMS = {
     { to: '/admin/overtime', label: 'اعتماد العمل الإضافي', icon: IconClockPlus },
     { to: '/admin/validation', label: 'التحقق من الصور', icon: IconShieldCheck },
     { to: '/admin/reports', label: 'التقارير', icon: IconChart },
+    { to: '/admin/geofence', label: 'النطاق الجغرافي', icon: IconMapPin },
   ],
 };
 

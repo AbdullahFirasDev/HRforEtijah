@@ -4,6 +4,7 @@ const Overtime = require('../models/Overtime');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { createUserAccount } = require('../utils/userAccount');
+const { workSettingsFrom } = require('../utils/schedule');
 
 // @desc  Get all users (admin) with optional role filter
 // @route GET /api/users
@@ -26,7 +27,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
 // @route POST /api/users
 // @access Private (admin)
 const createUser = asyncHandler(async (req, res) => {
-  const user = await createUserAccount(req.body);
+  const user = await createUserAccount(req.body, workSettingsFrom(req.body));
   res.status(201).json({ success: true, user: user.toSafeObject() });
 });
 
@@ -46,7 +47,8 @@ const getMyTeam = asyncHandler(async (req, res) => {
   res.json({ success: true, count: team.length, team: team.map((u) => u.toSafeObject()) });
 });
 
-// @desc  Admin updates a user's role, manager assignment, or active state
+// @desc  Admin updates a user's role, manager assignment, active state,
+//        working hours, days off, or the multiple check-in exception
 // @route PATCH /api/users/:id
 // @access Private (admin)
 const updateUser = asyncHandler(async (req, res) => {
@@ -62,6 +64,7 @@ const updateUser = asyncHandler(async (req, res) => {
   if (role) user.role = role;
   if (managerId !== undefined) user.manager = managerId || null;
   if (isActive !== undefined) user.isActive = isActive;
+  user.set(workSettingsFrom(req.body));
 
   await user.save();
   res.json({ success: true, user: user.toSafeObject() });

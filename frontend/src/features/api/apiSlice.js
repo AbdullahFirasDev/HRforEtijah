@@ -28,11 +28,11 @@ const baseQueryWithSession = async (args, api, extraOptions) => {
 };
 
 // Central API slice. Feature-specific endpoints (auth, attendance, overtime,
-// users, reports) inject themselves into this via injectEndpoints so RTK
+// users, reports, settings) inject themselves into this via injectEndpoints so RTK
 // Query's caching/invalidation ("tags") works consistently across the app.
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithSession,
-  tagTypes: ['Attendance', 'Overtime', 'User', 'Report'],
+  tagTypes: ['Attendance', 'Overtime', 'User', 'Report', 'Settings'],
   endpoints: () => ({}),
 });

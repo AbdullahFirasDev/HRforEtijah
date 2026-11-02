@@ -8,8 +8,11 @@ import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
 import PageHeader from '../components/PageHeader';
 import Loading from '../components/Loading';
+import AttendanceNotes from '../components/AttendanceNotes';
+import LocationCell from '../components/LocationCell';
 import { formatHours, formatTime, todayStr } from '../utils/format';
 import { statusLabel } from '../utils/labels';
+import { locationText, notesText } from '../utils/attendance';
 
 const TITLES = { employee: 'تقاريري', manager: 'تقارير الفريق', admin: 'تقارير النظام' };
 
@@ -29,13 +32,17 @@ export default function Reports() {
     {
       key: 'location',
       label: 'الموقع',
-      value: (r) => (r.location ? `${r.location.lat.toFixed(3)}, ${r.location.lng.toFixed(3)}` : '-'),
-      render: (r) => (
-        <span dir="ltr">{r.location ? `${r.location.lat.toFixed(3)}, ${r.location.lng.toFixed(3)}` : '-'}</span>
-      ),
+      value: (r) => locationText(r.location),
+      render: (r) => <LocationCell location={r.location} />,
     },
     { key: 'totalHours', label: 'الساعات', value: (r) => formatHours(r.totalHours) },
     { key: 'status', label: 'الحالة', value: (r) => statusLabel(r.status), render: (r) => <StatusBadge status={r.status} /> },
+    {
+      key: 'notes',
+      label: 'ملاحظات',
+      value: notesText,
+      render: (r) => <AttendanceNotes record={r} />,
+    },
     {
       key: 'validation',
       label: 'التحقق',

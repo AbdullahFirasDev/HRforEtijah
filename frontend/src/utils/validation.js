@@ -46,6 +46,40 @@ export function validateNewPassword({ password, confirm }) {
   return { password: passwordError, confirm: confirmError };
 }
 
+// Working hours are optional, but need both ends and must not span midnight
+export function validateWorkSchedule({ start, end, offDays }) {
+  let startError;
+  let endError;
+  if (start && !end) endError = 'حدّد وقت نهاية الدوام أيضاً';
+  else if (end && !start) startError = 'حدّد وقت بداية الدوام أيضاً';
+  else if (start && end && end <= start) endError = 'وقت نهاية الدوام يجب أن يكون بعد وقت البداية';
+
+  return {
+    start: startError,
+    end: endError,
+    offDays: offDays.length >= 7 ? 'لا يمكن أن تكون كل أيام الأسبوع إجازة' : undefined,
+  };
+}
+
+// Office geofence form; `coords` is what parseCoords made of the location field
+export function validateGeofenceForm({ enabled, location, coords, radius, maxAccuracy }) {
+  let locationError;
+  if (location.trim() && !coords) locationError = 'اكتب الإحداثيات بالصيغة: خط العرض، خط الطول. مثال: 33.3152, 44.3661';
+  else if (enabled && !coords) locationError = 'حدّد موقع مقر العمل قبل تفعيل التحقق من الموقع';
+
+  return {
+    location: locationError,
+    radius: isIntBetween(radius, 20, 20000) ? undefined : 'نطاق الحضور يجب أن يكون بين 20 و20000 متر',
+    maxAccuracy: isIntBetween(maxAccuracy, 10, 5000) ? undefined : 'هامش الدقة يجب أن يكون بين 10 و5000 متر',
+  };
+}
+
+const isIntBetween = (value, min, max) => {
+  if (value === '' || value === null) return false;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= min && n <= max;
+};
+
 // Applies one field change; switching away from "employee" clears the
 // manager, since managers and admins don't report to anyone.
 export const updateAccountForm = (form, { name, value }) =>

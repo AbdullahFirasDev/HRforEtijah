@@ -7,6 +7,7 @@ import PageHeader from '../components/PageHeader';
 import Loading from '../components/Loading';
 import { todayStr, formatDateLong, formatHours, formatMonthYear } from '../utils/format';
 import { statusLabel } from '../utils/labels';
+import { openSessionOf } from '../utils/attendance';
 
 const MS_PER_HOUR = 1000 * 60 * 60;
 
@@ -25,7 +26,8 @@ export default function EmployeeSummary() {
 
   const [now, setNow] = useState(() => Date.now());
   const today = todayData?.attendance;
-  const isLive = !!today?.punchIn?.time && !today?.punchOut?.time;
+  const openSession = openSessionOf(today);
+  const isLive = !!openSession;
 
   useEffect(() => {
     if (!isLive) return undefined;
@@ -35,9 +37,11 @@ export default function EmployeeSummary() {
 
   const records = attData?.records || [];
 
-  const liveHours = isLive ? (now - new Date(today.punchIn.time).getTime()) / MS_PER_HOUR : 0;
+  // The open period isn't in totalHours yet; earlier periods of today are
+  const liveExtra = isLive ? (now - new Date(openSession.punchIn.time).getTime()) / MS_PER_HOUR : 0;
+  const liveHours = (today?.totalHours || 0) + liveExtra;
 
-  const totalHours = records.reduce((sum, r) => sum + (r.totalHours || 0), 0) + liveHours;
+  const totalHours = records.reduce((sum, r) => sum + (r.totalHours || 0), 0) + liveExtra;
   const presentDays = records.filter((r) => r.status === 'Completed' || r.status === 'Incomplete').length;
   const avgHours = presentDays ? totalHours / presentDays : 0;
 

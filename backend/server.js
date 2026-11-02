@@ -15,6 +15,7 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 const overtimeRoutes = require('./routes/overtimeRoutes');
 const userRoutes = require('./routes/userRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
 
 connectDB();
 
@@ -86,6 +87,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/overtime', overtimeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

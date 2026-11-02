@@ -20,8 +20,8 @@ const newUserRules = [
 ];
 
 // Creates an account with a unique email; employees must report to an
-// existing manager or admin.
-const createUserAccount = async ({ name, email, password, role, managerId }) => {
+// existing manager or admin. `extra` holds fields only an admin may set.
+const createUserAccount = async ({ name, email, password, role, managerId }, extra = {}) => {
   const existing = await User.findOne({ email: email?.toLowerCase() });
   if (existing) {
     throw new ApiError(409, 'يوجد حساب بهذا البريد الإلكتروني مسبقاً');
@@ -37,7 +37,7 @@ const createUserAccount = async ({ name, email, password, role, managerId }) => 
     manager = managerDoc._id;
   }
 
-  return User.create({ name, email, password, role: finalRole, manager });
+  return User.create({ name, email, password, role: finalRole, manager, ...extra });
 };
 
 module.exports = { newUserRules, createUserAccount };

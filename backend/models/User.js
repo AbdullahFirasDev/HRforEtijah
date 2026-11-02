@@ -37,6 +37,15 @@ const userSchema = new mongoose.Schema(
     deviceRegisteredAt: { type: Date, default: null },
     // Set when an admin changes the password; older sessions are rejected
     passwordChangedAt: { type: Date, default: null },
+    // Set by an admin (see utils/schedule.js). No start/end means no fixed
+    // hours: the default daily target applies and lateness isn't tracked.
+    workSchedule: {
+      start: { type: String, default: null },
+      end: { type: String, default: null },
+      timezone: { type: String, default: null },
+    },
+    weeklyOffDays: { type: [Number], default: [] },
+    allowMultiplePunches: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
@@ -61,6 +70,9 @@ userSchema.methods.toSafeObject = function () {
     manager: this.manager,
     isActive: this.isActive,
     device: this.deviceRegisteredAt ? { label: this.deviceLabel, registeredAt: this.deviceRegisteredAt } : null,
+    workSchedule: this.workSchedule?.start ? { start: this.workSchedule.start, end: this.workSchedule.end } : null,
+    weeklyOffDays: this.weeklyOffDays || [],
+    allowMultiplePunches: !!this.allowMultiplePunches,
     createdAt: this.createdAt,
   };
 };

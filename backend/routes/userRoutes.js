@@ -13,6 +13,7 @@ const { body } = require('express-validator');
 const { protect, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { newUserRules } = require('../utils/userAccount');
+const { workSettingsRules } = require('../utils/schedule');
 
 const router = express.Router();
 
@@ -22,9 +23,9 @@ router.get('/managers', getManagersList);
 router.use(protect);
 
 router.get('/', authorize('admin'), getAllUsers);
-router.post('/', authorize('admin'), newUserRules, validate, createUser);
+router.post('/', authorize('admin'), [...newUserRules, ...workSettingsRules], validate, createUser);
 router.get('/team', authorize('manager', 'admin'), getMyTeam);
-router.patch('/:id', authorize('admin'), updateUser);
+router.patch('/:id', authorize('admin'), workSettingsRules, validate, updateUser);
 router.patch('/:id/reset-device', authorize('admin'), resetDevice);
 // Passwords are changed and accounts deleted by admins only
 router.patch(

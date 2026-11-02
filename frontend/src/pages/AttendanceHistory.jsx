@@ -6,8 +6,11 @@ import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
 import PageHeader from '../components/PageHeader';
 import Loading from '../components/Loading';
+import AttendanceNotes from '../components/AttendanceNotes';
+import SessionSelfies from '../components/SessionSelfies';
 import { formatHours, formatTime } from '../utils/format';
 import { statusLabel } from '../utils/labels';
+import { notesText } from '../utils/attendance';
 
 export default function AttendanceHistory() {
   const [range, setRange] = useState({ from: '', to: '' });
@@ -21,6 +24,12 @@ export default function AttendanceHistory() {
     { key: 'totalHours', label: 'الساعات', value: (r) => formatHours(r.totalHours) },
     { key: 'status', label: 'الحالة', value: (r) => statusLabel(r.status), render: (r) => <StatusBadge status={r.status} /> },
     {
+      key: 'notes',
+      label: 'ملاحظات',
+      value: notesText,
+      render: (r) => <AttendanceNotes record={r} />,
+    },
+    {
       key: 'validation',
       label: 'التحقق',
       value: (r) => statusLabel(r.validation?.status || 'Pending'),
@@ -30,27 +39,7 @@ export default function AttendanceHistory() {
       key: 'selfies',
       label: 'الصور',
       value: () => '',
-      render: (r) =>
-        (r.punchIn?.selfie || r.punchOut?.selfie) && (
-          <span className="selfie-pair">
-            {r.punchIn?.selfie && (
-              <img
-                className="selfie-thumb"
-                src={r.punchIn.selfie}
-                alt="صورة الحضور"
-                onClick={() => setModalSrc(r.punchIn.selfie)}
-              />
-            )}
-            {r.punchOut?.selfie && (
-              <img
-                className="selfie-thumb"
-                src={r.punchOut.selfie}
-                alt="صورة الانصراف"
-                onClick={() => setModalSrc(r.punchOut.selfie)}
-              />
-            )}
-          </span>
-        ),
+      render: (r) => <SessionSelfies record={r} onOpen={setModalSrc} />,
     },
   ];
 

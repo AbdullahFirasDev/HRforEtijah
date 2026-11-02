@@ -20,6 +20,7 @@ import OvertimeApprovals from './pages/OvertimeApprovals';
 import AttendanceValidation from './pages/AttendanceValidation';
 import AdminUsers from './pages/AdminUsers';
 import AdminAttendance from './pages/AdminAttendance';
+import GeofenceSettings from './pages/GeofenceSettings';
 
 function withLayout(Component) {
   return (
@@ -86,6 +87,7 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/admin/overtime" element={withLayout(OvertimeApprovals)} />
         <Route path="/admin/validation" element={withLayout(AttendanceValidation)} />
         <Route path="/admin/reports" element={withLayout(Reports)} />
+        <Route path="/admin/geofence" element={withLayout(GeofenceSettings)} />
       </Route>
 
       <Route

@@ -585,6 +585,127 @@ label {
   color: var(--muted);
 }
 
+/* Two short fields side by side (e.g. working hours from / to) */
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.form-row > .field {
+  margin-bottom: 0;
+}
+.form-row-hint {
+  margin: 6px 0 var(--space-4);
+}
+
+fieldset {
+  min-width: 0;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  border: none;
+}
+legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+input[type='checkbox'] {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  padding: 0;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+/* Weekday toggles: a checkbox under each pill, so keyboard and screen readers work */
+.day-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+label.day-chip {
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+.day-chip input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+}
+.day-chip span {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 var(--space-3);
+  font-size: 14px;
+  background: var(--surface);
+  border: var(--border);
+  border-radius: 999px;
+}
+.day-chip input:checked + span {
+  background: var(--mustard);
+  box-shadow: var(--shadow-sm);
+}
+.day-chip input:focus-visible + span {
+  box-shadow: 0 0 0 3px var(--blue);
+}
+
+/* Office location preview on the geofence settings page */
+.geo-actions {
+  margin: calc(var(--space-2) * -1) 0 var(--space-4);
+}
+.map-preview {
+  margin: 0 0 var(--space-4);
+}
+.map-preview iframe {
+  display: block;
+  width: 100%;
+  height: 240px;
+  background: var(--paper-deep);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.map-preview figcaption {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* A checkbox with a bold label and an explanation underneath */
+label.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3);
+  font-weight: 400;
+  background: var(--paper);
+  border: 1.5px dashed var(--ink);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.check-row input {
+  margin-top: 3px;
+}
+.check-row strong {
+  display: block;
+  font-size: 14px;
+}
+.check-row small {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 /* ---------- Alerts ---------- */
 .alert {
   display: flex;
@@ -881,21 +1002,71 @@ tbody tr:hover td {
   border: var(--border);
   border-radius: var(--radius-sm);
 }
+/* Wraps after two check-in/check-out pairs on days with several periods */
 .selfie-pair {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
+  max-width: calc(4 * 48px + 3 * var(--space-2));
 }
 
-/* Registered device in the users table: label over date */
-.device-info {
+/* Two lines in one table cell: the value over a muted detail */
+.cell-stack {
   display: flex;
   flex-direction: column;
   line-height: 1.35;
   text-align: start;
 }
-.device-info small {
+.cell-stack small {
   font-size: 12px;
   color: var(--muted);
+}
+.cell-stack small.cell-warning {
+  font-weight: 700;
+  color: var(--brick-dark);
+}
+
+/* Lateness / early leave / day off / periods badges */
+.notes-cell {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* Today's work periods on the check-in page */
+.session-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.session-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1.5px dashed var(--line);
+}
+.session-list li:last-child {
+  border-bottom: none;
+}
+.session-num {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  background: var(--mustard);
+  border: var(--border);
+  border-radius: 50%;
+}
+.session-times {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Admin "manage account" window: one section per action, delete last */

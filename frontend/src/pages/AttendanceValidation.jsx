@@ -13,10 +13,10 @@ import DateRangeFilter from '../components/DateRangeFilter';
 import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
 import Loading from '../components/Loading';
+import SessionSelfies from '../components/SessionSelfies';
+import LocationCell from '../components/LocationCell';
 import { statusLabel } from '../utils/labels';
-
-const locationText = (r) =>
-  r.punchIn?.location ? `${r.punchIn.location.lat.toFixed(3)}, ${r.punchIn.location.lng.toFixed(3)}` : '-';
+import { farthestText, locationText } from '../utils/attendance';
 
 export default function AttendanceValidation() {
   const user = useSelector(selectCurrentUser);
@@ -51,39 +51,13 @@ export default function AttendanceValidation() {
       key: 'selfies',
       label: 'الصور (حضور / انصراف)',
       value: () => '',
-      render: (r) =>
-        (r.punchIn?.selfie || r.punchOut?.selfie) && (
-          <span className="selfie-pair">
-            {r.punchIn?.selfie && (
-              <img
-                className="selfie-thumb"
-                src={r.punchIn.selfie}
-                alt="صورة الحضور"
-                title="صورة الحضور"
-                onClick={() => setModalSrc(r.punchIn.selfie)}
-              />
-            )}
-            {r.punchOut?.selfie && (
-              <img
-                className="selfie-thumb"
-                src={r.punchOut.selfie}
-                alt="صورة الانصراف"
-                title="صورة الانصراف"
-                onClick={() => setModalSrc(r.punchOut.selfie)}
-              />
-            )}
-          </span>
-        ),
+      render: (r) => <SessionSelfies record={r} onOpen={setModalSrc} />,
     },
     {
       key: 'location',
-      label: 'الموقع',
-      value: locationText,
-      render: (r) => (
-        <span dir="ltr" style={{ fontSize: 13 }}>
-          {locationText(r)}
-        </span>
-      ),
+      label: 'موقع الحضور',
+      value: (r) => [locationText(r.punchIn?.location), farthestText(r)].filter(Boolean).join(' · '),
+      render: (r) => <LocationCell location={r.punchIn?.location} farthest={farthestText(r)} />,
     },
     {
       key: 'validation',

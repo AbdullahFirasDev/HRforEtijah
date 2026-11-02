@@ -18,8 +18,9 @@ router.use(protect);
 
 const punchValidators = [
   body('selfie').notEmpty().withMessage('صورة السيلفي مطلوبة'),
-  body('lat').isFloat().withMessage('إحداثيات الموقع غير صحيحة'),
-  body('lng').isFloat().withMessage('إحداثيات الموقع غير صحيحة'),
+  body('lat', 'إحداثيات الموقع غير صحيحة').isFloat({ min: -90, max: 90 }).toFloat(),
+  body('lng', 'إحداثيات الموقع غير صحيحة').isFloat({ min: -180, max: 180 }).toFloat(),
+  body('accuracy', 'دقة الموقع غير صحيحة').optional({ values: 'null' }).isFloat({ min: 0 }).toFloat(),
 ];
 
 router.post('/punch-in', punchValidators, validate, punchIn);

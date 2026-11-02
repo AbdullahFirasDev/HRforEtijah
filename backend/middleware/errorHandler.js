@@ -25,6 +25,12 @@ const errorHandler = (err, req, res, next) => {
     message = field === 'email' ? 'يوجد حساب بهذا البريد الإلكتروني مسبقاً' : 'هذا السجل موجود مسبقاً';
   }
 
+  // Two requests changed the same record at once (e.g. a double-tapped punch)
+  if (err.name === 'VersionError') {
+    statusCode = 409;
+    message = 'تغيّر هذا السجل للتو بطلب آخر. حدّث الصفحة ثم حاول مرة أخرى.';
+  }
+
   // Mongoose validation error
   if (err.name === 'ValidationError') {
     statusCode = 400;
