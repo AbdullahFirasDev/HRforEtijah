@@ -12,6 +12,8 @@ const escapeHtml = (text) =>
 // On phones each row turns into a card, labelled from the column headers.
 // columns: [{ key, label, render?(row) -> node, value?(row) -> string (search/export text),
 //             wrap?: true for long free text that may break onto several lines }]
+// selected/onSelectedChange: optional checkbox per row (row keys as strings),
+// with a header box for every row the search currently shows.
 export default function DataTable({
   title,
   exportTitle,
@@ -21,6 +23,8 @@ export default function DataTable({
   searchPlaceholder = 'بحث...',
   fileName = 'export',
   rowKey = (row, i) => row._id || row.id || i,
+  selected = [],
+  onSelectedChange,
 }) {
   const [search, setSearch] = useState('');
 
@@ -36,6 +40,17 @@ export default function DataTable({
     return rows.filter((row) => columns.some((col) => cellText(col, row).toLowerCase().includes(q)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, search, columns]);
+
+  const selectable = !!onSelectedChange;
+  const keyOf = (row, i) => String(rowKey(row, i));
+  const shownKeys = filteredRows.map(keyOf);
+  const allShownSelected = shownKeys.length > 0 && shownKeys.every((k) => selected.includes(k));
+  const toggleAllShown = () =>
+    onSelectedChange(
+      allShownSelected ? selected.filter((k) => !shownKeys.includes(k)) : [...new Set([...selected, ...shownKeys])]
+    );
+  const toggleRow = (key) =>
+    onSelectedChange(selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key]);
 
   const handleExportCsv = () => {
     const header = columns.map((c) => `"${c.label.replace(/"/g, '""')}"`).join(',');
@@ -156,6 +171,17 @@ export default function DataTable({
           <table className="data-table">
             <thead>
               <tr>
+                {selectable && (
+                  <th className="cell-select">
+                    <input
+                      type="checkbox"
+                      checked={allShownSelected}
+                      onChange={toggleAllShown}
+                      aria-label="تحديد كل السجلات الظاهرة"
+                      title="تحديد كل السجلات الظاهرة"
+                    />
+                  </th>
+                )}
                 {columns.map((c) => (
                   <th key={c.key}>{c.label}</th>
                 ))}
@@ -163,7 +189,17 @@ export default function DataTable({
             </thead>
             <tbody>
               {filteredRows.map((row, i) => (
-                <tr key={rowKey(row, i)}>
+                <tr key={rowKey(row, i)} className={selectable && selected.includes(keyOf(row, i)) ? 'row-selected' : undefined}>
+                  {selectable && (
+                    <td className="cell-select" data-label="تحديد">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(keyOf(row, i))}
+                        onChange={() => toggleRow(keyOf(row, i))}
+                        aria-label="تحديد السجل"
+                      />
+                    </td>
+                  )}
                   {columns.map((c) => (
                     <td key={c.key} data-label={c.label} className={c.wrap ? 'cell-wrap' : undefined}>
                       {c.render ? c.render(row) : c.value ? c.value(row) : row[c.key]}

@@ -8,6 +8,7 @@ const {
   getTeamAttendance,
   getAllAttendance,
   validateAttendance,
+  deleteAttendance,
 } = require('../controllers/attendanceController');
 const { protect, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -37,6 +38,18 @@ router.patch(
   [body('status').isIn(['Valid', 'Invalid']).withMessage('نتيجة التحقق يجب أن تكون "صحيح" أو "غير صحيح"')],
   validate,
   validateAttendance
+);
+
+// Deleting records is for admins only
+router.post(
+  '/delete',
+  authorize('admin'),
+  [
+    body('ids', 'اختر سجلاً واحداً على الأقل للحذف (200 سجل كحد أقصى في المرة)').isArray({ min: 1, max: 200 }),
+    body('ids.*', 'معرّف سجل الحضور غير صحيح').isMongoId(),
+  ],
+  validate,
+  deleteAttendance
 );
 
 module.exports = router;

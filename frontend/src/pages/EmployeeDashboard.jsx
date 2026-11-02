@@ -8,7 +8,7 @@ import Loading from '../components/Loading';
 import useGeolocation from '../utils/useGeolocation';
 import { formatHours, formatTime } from '../utils/format';
 import { openSessionOf, periodHours, sessionsOf } from '../utils/attendance';
-import { hoursText } from '../utils/workSchedule';
+import { hoursText, weekLines } from '../utils/workSchedule';
 import {
   useGetTodayStatusQuery,
   usePunchInMutation,
@@ -35,6 +35,10 @@ export default function EmployeeDashboard() {
   const canPunchIn = !isWorking && (sessions.length === 0 || (multiple && sessions.length < today.maxSessions));
   const nextPeriod = sessions.length + 1;
   const scheduleHours = hoursText(today);
+  const todayWeekday = today ? new Date(`${today.date}T00:00:00Z`).getUTCDay() : null;
+  const week = today?.week
+    ? weekLines({ days: today.week.filter((d) => d.start), off: today.week.filter((d) => d.off).map((d) => d.day) })
+    : [];
 
   const handleAction = async (type) => {
     // Guard against double-clicks: geolocation lookup below can take seconds,
@@ -196,6 +200,23 @@ export default function EmployeeDashboard() {
           </p>
         )}
       </div>
+
+      {week.length > 0 && (
+        <div className="card card-narrow">
+          <h3 className="card-title">دوامك الأسبوعي</h3>
+          <ul className="week-list">
+            {week.map((l) => (
+              <li key={l.day} className={[l.day === todayWeekday && 'is-today', l.off && 'is-off'].filter(Boolean).join(' ')}>
+                <span className="week-list-day">
+                  {l.name}
+                  {l.day === todayWeekday && <span className="badge info">اليوم</span>}
+                </span>
+                <span>{l.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

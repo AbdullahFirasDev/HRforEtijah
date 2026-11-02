@@ -46,19 +46,20 @@ export function validateNewPassword({ password, confirm }) {
   return { password: passwordError, confirm: confirmError };
 }
 
-// Working hours are optional, but need both ends and must not span midnight
-export function validateWorkSchedule({ start, end, offDays }) {
-  let startError;
-  let endError;
-  if (start && !end) endError = 'حدّد وقت نهاية الدوام أيضاً';
-  else if (end && !start) startError = 'حدّد وقت بداية الدوام أيضاً';
-  else if (start && end && end <= start) endError = 'وقت نهاية الدوام يجب أن يكون بعد وقت البداية';
-
-  return {
-    start: startError,
-    end: endError,
-    offDays: offDays.length >= 7 ? 'لا يمكن أن تكون كل أيام الأسبوع إجازة' : undefined,
-  };
+// Each working day may have hours (both ends, same day) or none (flexible)
+export function validateWorkSchedule({ days }) {
+  const errors = {};
+  for (const d of days) {
+    let message;
+    if (!d.off) {
+      if (d.start && !d.end) message = 'حدّد وقت نهاية الدوام';
+      else if (d.end && !d.start) message = 'حدّد وقت بداية الدوام';
+      else if (d.start && d.end && d.end <= d.start) message = 'وقت النهاية يجب أن يكون بعد وقت البداية';
+    }
+    errors[`day${d.day}`] = message;
+  }
+  errors.offDays = days.every((d) => d.off) ? 'لا يمكن أن تكون كل أيام الأسبوع إجازة' : undefined;
+  return errors;
 }
 
 // Office geofence form; `coords` is what parseCoords made of the location field

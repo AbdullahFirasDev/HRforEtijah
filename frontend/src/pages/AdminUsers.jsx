@@ -12,17 +12,7 @@ import Alert from '../components/Alert';
 import Loading from '../components/Loading';
 import { formatDate } from '../utils/format';
 import { ROLE_LABELS, roleLabel } from '../utils/labels';
-import { dayNamesText, hoursText } from '../utils/workSchedule';
-
-// Working hours summary for the users table (only employees check in)
-const scheduleLines = (u) => {
-  if (u.role !== 'employee') return null;
-  const days = u.weeklyOffDays?.length ? `الإجازة: ${dayNamesText(u.weeklyOffDays)}` : 'بلا يوم إجازة';
-  return {
-    hours: hoursText(u.workSchedule) || 'بدون دوام ثابت',
-    details: u.allowMultiplePunches ? `${days} · حضور متعدد` : days,
-  };
-};
+import { scheduleSummary } from '../utils/workSchedule';
 
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => (
   <option key={value} value={value}>
@@ -89,7 +79,7 @@ export default function AdminUsers() {
           disabled={u.id === me?.id}
           title={u.id === me?.id ? 'لا يمكنك تغيير دورك بنفسك' : undefined}
           onChange={(e) => handleRoleChange(u, e.target.value)}
-          style={{ minWidth: 124 }}
+          style={{ minWidth: 136 }}
         >
           {ROLE_OPTIONS}
         </select>
@@ -118,19 +108,21 @@ export default function AdminUsers() {
     {
       key: 'schedule',
       label: 'الدوام',
+      wrap: true,
+      // Only employees check in, so only they have a schedule
       value: (u) => {
-        const lines = scheduleLines(u);
-        return lines ? `${lines.hours} (${lines.details})` : '-';
+        if (u.role !== 'employee') return '-';
+        const s = scheduleSummary(u);
+        return `${s.hours} (${s.details})`;
       },
       render: (u) => {
-        const lines = scheduleLines(u);
-        return lines ? (
-          <span className="cell-stack">
-            <strong>{lines.hours}</strong>
-            <small>{lines.details}</small>
+        if (u.role !== 'employee') return '-';
+        const s = scheduleSummary(u);
+        return (
+          <span className="cell-stack" title={s.breakdown}>
+            <strong>{s.hours}</strong>
+            <small>{s.details}</small>
           </span>
-        ) : (
-          '-'
         );
       },
     },

@@ -26,6 +26,11 @@ export const attendanceApi = apiSlice.injectEndpoints({
       query: (params) => ({ url: '/attendance/all', params }),
       providesTags: ['Attendance'],
     }),
+    // Admin only; also removes overtime requests filed against the records
+    deleteAttendance: builder.mutation({
+      query: (ids) => ({ url: '/attendance/delete', method: 'POST', body: { ids } }),
+      invalidatesTags: ['Attendance', 'Overtime', 'Report'],
+    }),
     validateAttendance: builder.mutation({
       query: ({ id, ...body }) => ({ url: `/attendance/${id}/validate`, method: 'PATCH', body }),
       invalidatesTags: ['Attendance'],
@@ -41,4 +46,5 @@ export const {
   useGetTeamAttendanceQuery,
   useGetAllAttendanceQuery,
   useValidateAttendanceMutation,
+  useDeleteAttendanceMutation,
 } = attendanceApi;

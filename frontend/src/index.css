@@ -927,7 +927,7 @@ td {
   border-bottom: 1.5px dashed var(--line);
 }
 td.cell-wrap {
-  min-width: 180px;
+  min-width: 150px;
   max-width: 320px;
   white-space: normal;
 }
@@ -1526,6 +1526,141 @@ tbody tr:hover td {
   font-weight: 800;
 }
 
+/* Weekly schedule editor: one row per day (off, or from/to hours) */
+.week-grid {
+  display: grid;
+  gap: var(--space-2);
+}
+.week-head,
+.week-row {
+  display: grid;
+  grid-template-columns: 92px 78px minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: center;
+}
+.week-head {
+  /* Same inset as the bordered rows so the titles sit over their columns */
+  padding: 0 calc(var(--space-2) + 1.5px);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.week-row {
+  padding: var(--space-2);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.week-row.is-off {
+  background: var(--paper);
+}
+.week-day {
+  display: flex;
+  flex-direction: column;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.week-day small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.week-row input[type='time'] {
+  min-height: 40px;
+  padding: var(--space-1) var(--space-2);
+}
+.week-off span {
+  height: 32px;
+  font-size: 13px;
+}
+.week-off-text {
+  grid-column: 3 / -1;
+  font-size: 13px;
+  color: var(--muted);
+}
+.week-error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.week-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.week-total {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* The employee's own week on the check-in page */
+.week-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.week-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
+  font-size: 14px;
+  border-bottom: 1.5px dashed var(--line);
+}
+.week-list li:last-child {
+  border-bottom: none;
+}
+.week-list li.is-off {
+  color: var(--muted);
+}
+.week-list li.is-today {
+  font-weight: 800;
+  background: var(--mustard-soft);
+  border-radius: var(--radius-sm);
+}
+.week-list-day {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Row selection in tables (admin deletes attendance records) */
+th.cell-select,
+td.cell-select {
+  width: 44px;
+}
+tbody tr.row-selected td {
+  background: var(--mustard-soft);
+}
+.selection-bar {
+  position: sticky;
+  top: var(--space-2);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  font-weight: 800;
+  background: var(--brick-soft);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+.selection-bar > span {
+  margin-inline-end: auto;
+}
+.delete-list {
+  margin: 0 0 var(--space-4);
+  padding-inline-start: var(--space-5);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .grid-4 {
@@ -1755,5 +1890,22 @@ tbody tr:hover td {
 
   .auth-card {
     padding: var(--space-5) var(--space-4);
+  }
+
+  .data-table tr.row-selected {
+    background: var(--mustard-soft);
+  }
+  /* Schedule rows: day and "off" on top, the two times underneath */
+  .week-head {
+    display: none;
+  }
+  .week-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .week-off {
+    justify-self: end;
+  }
+  .week-off-text {
+    display: none;
   }
 }

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { weeklyHours } = require('../utils/schedule');
 
 const userSchema = new mongoose.Schema(
   {
@@ -37,9 +38,16 @@ const userSchema = new mongoose.Schema(
     deviceRegisteredAt: { type: Date, default: null },
     // Set when an admin changes the password; older sessions are rejected
     passwordChangedAt: { type: Date, default: null },
-    // Set by an admin (see utils/schedule.js). No start/end means no fixed
-    // hours: the default daily target applies and lateness isn't tracked.
+    // Set by an admin (see utils/schedule.js): hours for each working day.
+    // A day without hours has no fixed time. start/end hold the single
+    // schedule of users saved before per-day hours existed.
     workSchedule: {
+      days: [
+        new mongoose.Schema(
+          { day: { type: Number, min: 0, max: 6 }, start: String, end: String },
+          { _id: false }
+        ),
+      ],
       start: { type: String, default: null },
       end: { type: String, default: null },
       timezone: { type: String, default: null },
@@ -70,7 +78,7 @@ userSchema.methods.toSafeObject = function () {
     manager: this.manager,
     isActive: this.isActive,
     device: this.deviceRegisteredAt ? { label: this.deviceLabel, registeredAt: this.deviceRegisteredAt } : null,
-    workSchedule: this.workSchedule?.start ? { start: this.workSchedule.start, end: this.workSchedule.end } : null,
+    workSchedule: { days: weeklyHours(this) },
     weeklyOffDays: this.weeklyOffDays || [],
     allowMultiplePunches: !!this.allowMultiplePunches,
     createdAt: this.createdAt,

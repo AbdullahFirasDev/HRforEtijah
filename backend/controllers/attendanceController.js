@@ -1,11 +1,13 @@
 const Attendance = require('../models/Attendance');
+const Overtime = require('../models/Overtime');
 const User = require('../models/User');
+const logger = require('../config/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { calculateHours, deriveStatus } = require('../utils/hours');
 const { checkPunchLocation, loadGeofence } = require('../utils/geofence');
 const { todayLocal } = require('../utils/dateUtils');
-const { MAX_SESSIONS_PER_DAY, dayPlan, targetHours, lateMinutesAt, earlyLeaveMinutesAt } = require('../utils/schedule');
+const { MAX_SESSIONS_PER_DAY, dayPlan, weekPlan, targetHours, lateMinutesAt, earlyLeaveMinutesAt } = require('../utils/schedule');
 
 const todayStr = todayLocal;
 
@@ -133,6 +135,7 @@ const getTodayStatus = asyncHandler(async (req, res) => {
       dayOff: !!plan.dayOff,
       allowMultiplePunches: !!req.user.allowMultiplePunches,
       maxSessions: MAX_SESSIONS_PER_DAY,
+      week: weekPlan(req.user),
     },
   });
 });
@@ -219,6 +222,29 @@ const validateAttendance = asyncHandler(async (req, res) => {
   res.json({ success: true, attendance: record });
 });
 
+// @desc  Admin permanently deletes attendance records, with their selfies and
+//        any overtime request filed against them
+// @route POST /api/attendance/delete
+// @access Private (admin)
+const deleteAttendance = asyncHandler(async (req, res) => {
+  const records = await Attendance.find({ _id: { $in: req.body.ids } })
+    .select('user date')
+    .populate('user', 'email')
+    .lean();
+  if (!records.length) throw new ApiError(404, 'لم يُعثر على سجلات الحضور المحددة، ربما حُذفت مسبقاً');
+
+  const ids = records.map((r) => r._id);
+  const overtime = await Overtime.deleteMany({ attendance: { $in: ids } });
+  const attendance = await Attendance.deleteMany({ _id: { $in: ids } });
+  // Deletions can't be undone, so keep a trail of who removed what
+  logger.info(
+    `${req.user.email} deleted ${attendance.deletedCount} attendance record(s) and ${overtime.deletedCount} overtime request(s): ` +
+      records.map((r) => `${r.user?.email || r.user}@${r.date}`).join(', ')
+  );
+
+  res.json({ success: true, deleted: { attendance: attendance.deletedCount, overtime: overtime.deletedCount } });
+});
+
 module.exports = {
   punchIn,
   punchOut,
@@ -227,4 +253,5 @@ module.exports = {
   getTeamAttendance,
   getAllAttendance,
   validateAttendance,
+  deleteAttendance,
 };
