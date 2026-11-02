@@ -6,6 +6,10 @@ export const userApi = apiSlice.injectEndpoints({
       query: (params) => ({ url: '/users', params }),
       providesTags: ['User'],
     }),
+    createUser: builder.mutation({
+      query: (body) => ({ url: '/users', method: 'POST', body }),
+      invalidatesTags: ['User'],
+    }),
     getMyTeam: builder.query({
       query: () => '/users/team',
       providesTags: ['User'],
@@ -23,6 +27,7 @@ export const userApi = apiSlice.injectEndpoints({
 
 export const {
   useGetAllUsersQuery,
+  useCreateUserMutation,
   useGetMyTeamQuery,
   useUpdateUserMutation,
   useGetDailyReportQuery,

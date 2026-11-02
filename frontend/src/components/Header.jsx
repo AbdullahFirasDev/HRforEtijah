@@ -13,7 +13,7 @@ export default function Header({ onToggleSidebar }) {
       </button>
       <div className="app-header-brand">
         <span className="app-header-logo">A</span>
-        <span className="app-header-title">Attendance MS</span>
+        <span className="app-header-title">EtijahHR</span>
       </div>
       <div className="app-header-spacer" />
       <ProfileMenu user={user} />

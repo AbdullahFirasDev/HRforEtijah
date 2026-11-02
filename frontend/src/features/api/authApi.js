@@ -13,6 +13,8 @@ export const authApi = apiSlice.injectEndpoints({
     }),
     getManagersList: builder.query({
       query: () => '/users/managers',
+      // Refetch after users are added or their roles change
+      providesTags: ['User'],
     }),
   }),
 });

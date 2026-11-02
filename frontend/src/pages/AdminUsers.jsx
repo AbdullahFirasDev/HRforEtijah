@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useGetAllUsersQuery, useUpdateUserMutation } from '../features/api/userApi';
 import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
+import AddEmployeeModal from '../components/AddEmployeeModal';
 import { formatDate } from '../utils/format';
 
 export default function AdminUsers() {
@@ -10,6 +11,13 @@ export default function AdminUsers() {
   const [updateUser] = useUpdateUserMutation();
   const [error, setError] = useState('');
   const [range, setRange] = useState({ from: '', to: '' });
+  const [showAdd, setShowAdd] = useState(false);
+  const [success, setSuccess] = useState('');
+
+  const handleCreated = (u) => {
+    setShowAdd(false);
+    setSuccess(`${u.name} was added. Share the email and initial password with them so they can log in.`);
+  };
 
   const handleToggleActive = async (u) => {
     setError('');
@@ -73,8 +81,22 @@ export default function AdminUsers() {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 20 }}>All Users</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <h1 style={{ margin: 0 }}>All Users</h1>
+        <button
+          className="btn"
+          onClick={() => {
+            setSuccess('');
+            setShowAdd(true);
+          }}
+        >
+          + Add Employee
+        </button>
+      </div>
       {error && <p className="error-text">{error}</p>}
+      {success && <p className="success-text">{success}</p>}
+
+      <AddEmployeeModal open={showAdd} onClose={() => setShowAdd(false)} onCreated={handleCreated} />
 
       <DateRangeFilter
         from={range.from}

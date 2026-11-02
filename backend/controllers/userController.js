@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
+const { createUserAccount } = require('../utils/userAccount');
 
 // @desc  Get all users (admin) with optional role filter
 // @route GET /api/users
@@ -17,6 +18,14 @@ const getAllUsers = asyncHandler(async (req, res) => {
   const total = await User.countDocuments(query);
 
   res.json({ success: true, count: users.length, total, users: users.map((u) => u.toSafeObject()) });
+});
+
+// @desc  Admin adds a new user (employee, manager or admin) without signing in as them
+// @route POST /api/users
+// @access Private (admin)
+const createUser = asyncHandler(async (req, res) => {
+  const user = await createUserAccount(req.body);
+  res.status(201).json({ success: true, user: user.toSafeObject() });
 });
 
 // @desc  Get list of managers/admins (used by signup form to assign a manager)
@@ -51,4 +60,4 @@ const updateUser = asyncHandler(async (req, res) => {
   res.json({ success: true, user: user.toSafeObject() });
 });
 
-module.exports = { getAllUsers, getManagersList, getMyTeam, updateUser };
+module.exports = { getAllUsers, createUser, getManagersList, getMyTeam, updateUser };

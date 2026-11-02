@@ -68,7 +68,7 @@ export default function DataTable({
         </head>
         <body>
           <div class="doc-header">
-            <h1>${title || 'Attendance MS Report'}</h1>
+            <h1>${title || 'EtijahHR Report'}</h1>
             <span>Generated: ${generatedAt}</span>
           </div>
           <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
