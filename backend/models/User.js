@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     isActive: { type: Boolean, default: true },
+    // The one device allowed to sign in (see utils/device.js). Set on the
+    // first sign-in; an admin can reset it when the employee changes phone.
+    deviceIdHash: { type: String, default: null, select: false },
+    deviceLabel: { type: String, default: null },
+    deviceRegisteredAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
@@ -53,6 +58,7 @@ userSchema.methods.toSafeObject = function () {
     role: this.role,
     manager: this.manager,
     isActive: this.isActive,
+    device: this.deviceRegisteredAt ? { label: this.deviceLabel, registeredAt: this.deviceRegisteredAt } : null,
     createdAt: this.createdAt,
   };
 };

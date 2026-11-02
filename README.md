@@ -66,7 +66,8 @@ Open `http://localhost:5173`, log in with one of the seeded accounts, and try th
 
 ## 3. Architecture Overview
 
-- **Auth:** JWT issued on login/register, stored in Redux + localStorage, attached via RTK Query's `prepareHeaders`. Backend `protect` middleware verifies the token and loads the user; `authorize(...roles)` enforces RBAC per route.
+- **Auth:** JWT issued on login/register, stored in Redux + localStorage, attached via RTK Query's `prepareHeaders`. Backend `protect` middleware verifies the token and loads the user; `authorize(...roles)` enforces RBAC per route. A session lasts `SESSION_TIMEOUT_MINUTES` (default 15), then the user is signed out automatically.
+- **One device per account:** the browser keeps a random device ID (`frontend/src/utils/deviceId.js`) and sends it at sign-in and on every request. The account's first successful sign-in registers that device (only its SHA-256 is stored); any other device is refused, even with the right password, and a token copied to another device stops working. Admins reset a user's device from the users page when the employee changes phone or clears the browser; if the only admin is locked out, run `npm run reset-device -- admin@example.com` in `backend/`. On iPhone, Safari and the home-screen app keep separate storage, so employees should install the app first and sign in from it.
 - **Data model:**
   - `User` — name/email/password(hashed with bcrypt)/role(employee|manager|admin)/manager (self-reference for team grouping).
   - `Attendance` — one document per user per calendar day (`{user, date}` unique index), embedding `punchIn`/`punchOut` (time, selfie, location), computed `totalHours`/`status`, and a `validation` sub-object (status/remarks/verifiedBy).

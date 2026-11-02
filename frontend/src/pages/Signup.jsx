@@ -7,6 +7,7 @@ import AuthLayout from '../components/AuthLayout';
 import AccountFields from '../components/AccountFields';
 import Alert from '../components/Alert';
 import { MIN_PASSWORD, hasErrors, updateAccountForm, validateAccountForm } from '../utils/validation';
+import { getDeviceId } from '../utils/deviceId';
 
 export default function Signup() {
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'employee', managerId: '' });
@@ -30,7 +31,7 @@ export default function Signup() {
     setErrors(found);
     if (hasErrors(found)) return;
     try {
-      const res = await register(form).unwrap();
+      const res = await register({ ...form, deviceId: getDeviceId() }).unwrap();
       dispatch(setCredentials(res));
       navigate(`/${res.user.role}`);
     } catch (err) {
@@ -49,6 +50,7 @@ export default function Signup() {
           </p>
           <p className="auth-note">
             ملاحظة: يجب على الموظف اختيار مدير أو مسؤول نظام يتبع له. إن لم يوجد أي مدير بعد، أنشئ حساب مدير أولاً.
+            ويُربط الحساب بهذا الجهاز، فلن يمكن الدخول إليه من جهاز آخر إلا بعد أن يعيد مسؤول النظام تعيين الجهاز.
           </p>
         </>
       }

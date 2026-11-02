@@ -7,6 +7,7 @@ import AuthLayout from '../components/AuthLayout';
 import Field from '../components/Field';
 import Alert from '../components/Alert';
 import { hasErrors, validateLoginForm } from '../utils/validation';
+import { getDeviceId } from '../utils/deviceId';
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -30,7 +31,7 @@ export default function Login() {
     setErrors(found);
     if (hasErrors(found)) return;
     try {
-      const res = await login(form).unwrap();
+      const res = await login({ ...form, deviceId: getDeviceId() }).unwrap();
       dispatch(setCredentials(res));
       navigate(`/${res.user.role}`);
     } catch (err) {
@@ -43,9 +44,15 @@ export default function Login() {
       title="مرحباً بعودتك"
       subtitle="سجّل الدخول إلى نظام الاتجاه للحضور"
       footer={
-        <p className="auth-footer">
-          ليس لديك حساب؟ <Link to="/signup">إنشاء حساب</Link>
-        </p>
+        <>
+          <p className="auth-footer">
+            ليس لديك حساب؟ <Link to="/signup">إنشاء حساب</Link>
+          </p>
+          <p className="auth-note">
+            ملاحظة: يُربط حسابك بأول جهاز تسجّل الدخول منه، ولا يمكن الدخول إليه من جهاز آخر إلا بعد أن يعيد مسؤول
+            النظام تعيين الجهاز.
+          </p>
+        </>
       }
     >
       <Alert type="warning">{notice}</Alert>

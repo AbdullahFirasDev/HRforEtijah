@@ -60,4 +60,18 @@ const updateUser = asyncHandler(async (req, res) => {
   res.json({ success: true, user: user.toSafeObject() });
 });
 
-module.exports = { getAllUsers, createUser, getManagersList, getMyTeam, updateUser };
+// @desc  Admin frees a user's registered device (new phone, cleared browser);
+//        their next sign-in registers the device they use then
+// @route PATCH /api/users/:id/reset-device
+// @access Private (admin)
+const resetDevice = asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { $set: { deviceIdHash: null, deviceLabel: null, deviceRegisteredAt: null } },
+    { new: true }
+  );
+  if (!user) throw new ApiError(404, 'المستخدم غير موجود');
+  res.json({ success: true, user: user.toSafeObject() });
+});
+
+module.exports = { getAllUsers, createUser, getManagersList, getMyTeam, updateUser, resetDevice };

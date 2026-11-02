@@ -3,6 +3,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const User = require('../models/User');
 const { SESSION_TIMEOUT_MINUTES } = require('../config/session');
+const { OTHER_DEVICE_MESSAGE, isRegisteredDevice } = require('../utils/device');
 
 // Verifies the JWT sent in the Authorization header and attaches the
 // authenticated user (without password) to req.user.
@@ -30,9 +31,15 @@ const protect = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, 'انتهت الجلسة، يرجى تسجيل الدخول من جديد');
   }
 
-  const user = await User.findById(decoded.id);
+  const user = await User.findById(decoded.id).select('+deviceIdHash');
   if (!user || !user.isActive) {
     throw new ApiError(401, 'الحساب غير موجود أو معطّل');
+  }
+
+  // The session only works from the account's registered device, so a token
+  // copied to another phone is useless.
+  if (!isRegisteredDevice(user.deviceIdHash, req.get('x-device-id'))) {
+    throw new ApiError(401, OTHER_DEVICE_MESSAGE);
   }
 
   req.user = user;

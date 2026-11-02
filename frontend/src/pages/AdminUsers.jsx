@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useGetAllUsersQuery, useUpdateUserMutation } from '../features/api/userApi';
+import { useGetAllUsersQuery, useResetDeviceMutation, useUpdateUserMutation } from '../features/api/userApi';
 import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
 import AddEmployeeModal from '../components/AddEmployeeModal';
@@ -20,6 +20,7 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState('');
   const { data, isLoading } = useGetAllUsersQuery({ role: roleFilter || undefined });
   const [updateUser] = useUpdateUserMutation();
+  const [resetDevice, { isLoading: resetting }] = useResetDeviceMutation();
   const [error, setError] = useState('');
   const [range, setRange] = useState({ from: '', to: '' });
   const [showAdd, setShowAdd] = useState(false);
@@ -49,6 +50,17 @@ export default function AdminUsers() {
       setSuccess(`تم تغيير دور ${u.name} إلى "${roleLabel(role)}".`);
     } catch (err) {
       setError(err?.data?.message || 'تعذر تغيير الدور.');
+    }
+  };
+
+  const handleResetDevice = async (u) => {
+    setError('');
+    setSuccess('');
+    try {
+      await resetDevice(u.id).unwrap();
+      setSuccess(`تمت إعادة تعيين جهاز ${u.name}. سيُسجَّل الجهاز الذي يدخل منه في المرة القادمة.`);
+    } catch (err) {
+      setError(err?.data?.message || 'تعذرت إعادة تعيين الجهاز.');
     }
   };
 
@@ -85,6 +97,30 @@ export default function AdminUsers() {
       value: (u) => (u.isActive ? 'نشط' : 'معطّل'),
       render: (u) => <span className={`badge ${u.isActive ? 'success' : 'danger'}`}>{u.isActive ? 'نشط' : 'معطّل'}</span>,
     },
+    {
+      key: 'device',
+      label: 'الجهاز المسجّل',
+      value: (u) => (u.device ? `${u.device.label} (${formatDate(u.device.registeredAt)})` : 'لم يُسجَّل بعد'),
+      render: (u) =>
+        u.device ? (
+          <span className="device-cell">
+            <span className="device-info">
+              <strong>{u.device.label}</strong>
+              <small>منذ {formatDate(u.device.registeredAt)}</small>
+            </span>
+            <button
+              className="btn secondary btn-sm"
+              disabled={resetting}
+              title="يسمح للموظف بالدخول من جهاز جديد"
+              onClick={() => handleResetDevice(u)}
+            >
+              إعادة تعيين
+            </button>
+          </span>
+        ) : (
+          <span className="badge muted">لم يُسجَّل بعد</span>
+        ),
+    },
     { key: 'joined', label: 'تاريخ الإضافة', value: (u) => formatDate(u.createdAt) },
     {
       key: 'action',
@@ -105,7 +141,7 @@ export default function AdminUsers() {
     <div>
       <PageHeader
         title="المستخدمون"
-        subtitle="أضف الموظفين وعدّل أدوارهم وفعّل حساباتهم أو عطّلها."
+        subtitle="أضف الموظفين وعدّل أدوارهم وفعّل حساباتهم أو عطّلها، وأعد تعيين الجهاز المسجّل عند تغيير الموظف لهاتفه."
         actions={
           <button
             className="btn"

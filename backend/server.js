@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 const logger = require('./config/logger');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const ApiError = require('./utils/ApiError');
 
 const authRoutes = require('./routes/authRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
@@ -29,23 +30,32 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // from X-Forwarded-For (otherwise the rate limiter puts every user in one bucket).
 if (process.env.VERCEL) app.set('trust proxy', 1);
 
-// On Vercel the frontend and the API share the deployment's domain, so the
-// deployment, branch and production URLs are always allowed. Add any other
-// custom domains to CLIENT_URL.
+// The frontend normally shares the API's domain (Vercel, or a LAN server), so
+// a request from the page's own origin is always allowed. Other origins must
+// be listed in CLIENT_URL; Vercel's own deployment URLs are added for safety.
 const vercelOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]
   .filter(Boolean)
   .map((host) => `https://${host}`);
 const allowedOrigins = [...(process.env.CLIENT_URL || '').split(','), ...vercelOrigins].map((o) => o.trim());
+
+// The host the browser asked for; behind Vercel's proxy it is in X-Forwarded-Host.
+const requestHost = (req) => (req.app.get('trust proxy') && req.get('x-forwarded-host')) || req.get('host');
+const isSameOrigin = (req, origin) => {
+  try {
+    return new URL(origin).host === requestHost(req);
+  } catch {
+    return false;
+  }
+};
+
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
+  cors((req, callback) => {
+    const origin = req.get('origin');
+    if (!origin || isSameOrigin(req, origin) || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      callback(null, { origin: true, credentials: true });
+    } else {
+      callback(new ApiError(403, 'هذا الموقع غير مسموح له بالاتصال بالنظام'));
+    }
   })
 );
 

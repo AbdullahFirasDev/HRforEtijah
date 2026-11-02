@@ -18,6 +18,10 @@ export const userApi = apiSlice.injectEndpoints({
       query: ({ id, ...body }) => ({ url: `/users/${id}`, method: 'PATCH', body }),
       invalidatesTags: ['User'],
     }),
+    resetDevice: builder.mutation({
+      query: (id) => ({ url: `/users/${id}/reset-device`, method: 'PATCH' }),
+      invalidatesTags: ['User'],
+    }),
     getDailyReport: builder.query({
       query: (params) => ({ url: '/reports/daily', params }),
       providesTags: ['Report'],
@@ -30,5 +34,6 @@ export const {
   useCreateUserMutation,
   useGetMyTeamQuery,
   useUpdateUserMutation,
+  useResetDeviceMutation,
   useGetDailyReportQuery,
 } = userApi;

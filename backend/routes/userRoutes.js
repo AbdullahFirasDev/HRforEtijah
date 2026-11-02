@@ -1,5 +1,12 @@
 const express = require('express');
-const { getAllUsers, createUser, getManagersList, getMyTeam, updateUser } = require('../controllers/userController');
+const {
+  getAllUsers,
+  createUser,
+  getManagersList,
+  getMyTeam,
+  updateUser,
+  resetDevice,
+} = require('../controllers/userController');
 const { protect, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { newUserRules } = require('../utils/userAccount');
@@ -15,5 +22,6 @@ router.get('/', authorize('admin'), getAllUsers);
 router.post('/', authorize('admin'), newUserRules, validate, createUser);
 router.get('/team', authorize('manager', 'admin'), getMyTeam);
 router.patch('/:id', authorize('admin'), updateUser);
+router.patch('/:id/reset-device', authorize('admin'), resetDevice);
 
 module.exports = router;

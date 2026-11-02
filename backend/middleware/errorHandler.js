@@ -35,6 +35,8 @@ const errorHandler = (err, req, res, next) => {
 
   if (statusCode >= 500) {
     logger.error(`${req.method} ${req.originalUrl} - ${err.stack || err.message}`);
+    // Internal details (e.g. "connect ECONNREFUSED ...") stay in the log, not on screen
+    message = 'تعذر إتمام الطلب بسبب مشكلة في الخادم. حاول مرة أخرى بعد قليل، وإن تكررت المشكلة فتواصل مع مسؤول النظام.';
   } else {
     logger.warn(`${req.method} ${req.originalUrl} - ${message}`);
   }
