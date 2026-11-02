@@ -22,6 +22,14 @@ export const userApi = apiSlice.injectEndpoints({
       query: (id) => ({ url: `/users/${id}/reset-device`, method: 'PATCH' }),
       invalidatesTags: ['User'],
     }),
+    changePassword: builder.mutation({
+      query: ({ id, password }) => ({ url: `/users/${id}/password`, method: 'PATCH', body: { password } }),
+      invalidatesTags: ['User'],
+    }),
+    deleteUser: builder.mutation({
+      query: ({ id, transferTo }) => ({ url: `/users/${id}`, method: 'DELETE', params: transferTo ? { transferTo } : undefined }),
+      invalidatesTags: ['User', 'Attendance', 'Overtime', 'Report'],
+    }),
     getDailyReport: builder.query({
       query: (params) => ({ url: '/reports/daily', params }),
       providesTags: ['Report'],
@@ -35,5 +43,7 @@ export const {
   useGetMyTeamQuery,
   useUpdateUserMutation,
   useResetDeviceMutation,
+  useChangePasswordMutation,
+  useDeleteUserMutation,
   useGetDailyReportQuery,
 } = userApi;

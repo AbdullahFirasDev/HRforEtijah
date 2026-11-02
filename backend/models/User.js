@@ -35,6 +35,8 @@ const userSchema = new mongoose.Schema(
     deviceIdHash: { type: String, default: null, select: false },
     deviceLabel: { type: String, default: null },
     deviceRegisteredAt: { type: Date, default: null },
+    // Set when an admin changes the password; older sessions are rejected
+    passwordChangedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

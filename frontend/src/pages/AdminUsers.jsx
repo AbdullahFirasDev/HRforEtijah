@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react';
-import { useGetAllUsersQuery, useResetDeviceMutation, useUpdateUserMutation } from '../features/api/userApi';
+import { useSelector } from 'react-redux';
+import { selectCurrentUser } from '../features/auth/authSlice';
+import { useGetAllUsersQuery, useUpdateUserMutation } from '../features/api/userApi';
 import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
 import AddEmployeeModal from '../components/AddEmployeeModal';
+import ManageUserModal from '../components/ManageUserModal';
 import PageHeader from '../components/PageHeader';
 import Field from '../components/Field';
 import Alert from '../components/Alert';
@@ -17,29 +20,28 @@ const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => (
 ));
 
 export default function AdminUsers() {
+  const me = useSelector(selectCurrentUser);
   const [roleFilter, setRoleFilter] = useState('');
   const { data, isLoading } = useGetAllUsersQuery({ role: roleFilter || undefined });
   const [updateUser] = useUpdateUserMutation();
-  const [resetDevice, { isLoading: resetting }] = useResetDeviceMutation();
   const [error, setError] = useState('');
   const [range, setRange] = useState({ from: '', to: '' });
   const [showAdd, setShowAdd] = useState(false);
+  const [manageId, setManageId] = useState(null);
   const [success, setSuccess] = useState('');
+
+  // Looked up on every render so the manage window shows fresh data after each action
+  const managed = data?.users?.find((u) => u.id === manageId);
 
   const handleCreated = (u) => {
     setShowAdd(false);
     setSuccess(`تمت إضافة ${u.name}. شارك البريد الإلكتروني وكلمة المرور الأولية مع الموظف ليتمكن من تسجيل الدخول.`);
   };
 
-  const handleToggleActive = async (u) => {
+  const handleDeleted = (message) => {
+    setManageId(null);
     setError('');
-    setSuccess('');
-    try {
-      await updateUser({ id: u.id, isActive: !u.isActive }).unwrap();
-      setSuccess(u.isActive ? `تم تعطيل حساب ${u.name}.` : `تم تفعيل حساب ${u.name}.`);
-    } catch (err) {
-      setError(err?.data?.message || 'تعذر تحديث حالة المستخدم.');
-    }
+    setSuccess(message);
   };
 
   const handleRoleChange = async (u, role) => {
@@ -50,17 +52,6 @@ export default function AdminUsers() {
       setSuccess(`تم تغيير دور ${u.name} إلى "${roleLabel(role)}".`);
     } catch (err) {
       setError(err?.data?.message || 'تعذر تغيير الدور.');
-    }
-  };
-
-  const handleResetDevice = async (u) => {
-    setError('');
-    setSuccess('');
-    try {
-      await resetDevice(u.id).unwrap();
-      setSuccess(`تمت إعادة تعيين جهاز ${u.name}. سيُسجَّل الجهاز الذي يدخل منه في المرة القادمة.`);
-    } catch (err) {
-      setError(err?.data?.message || 'تعذرت إعادة تعيين الجهاز.');
     }
   };
 
@@ -84,6 +75,8 @@ export default function AdminUsers() {
           className="input-sm"
           aria-label={`دور ${u.name}`}
           value={u.role}
+          disabled={u.id === me?.id}
+          title={u.id === me?.id ? 'لا يمكنك تغيير دورك بنفسك' : undefined}
           onChange={(e) => handleRoleChange(u, e.target.value)}
           style={{ minWidth: 140 }}
         >
@@ -103,19 +96,9 @@ export default function AdminUsers() {
       value: (u) => (u.device ? `${u.device.label} (${formatDate(u.device.registeredAt)})` : 'لم يُسجَّل بعد'),
       render: (u) =>
         u.device ? (
-          <span className="device-cell">
-            <span className="device-info">
-              <strong>{u.device.label}</strong>
-              <small>منذ {formatDate(u.device.registeredAt)}</small>
-            </span>
-            <button
-              className="btn secondary btn-sm"
-              disabled={resetting}
-              title="يسمح للموظف بالدخول من جهاز جديد"
-              onClick={() => handleResetDevice(u)}
-            >
-              إعادة تعيين
-            </button>
+          <span className="device-info">
+            <strong>{u.device.label}</strong>
+            <small>منذ {formatDate(u.device.registeredAt)}</small>
           </span>
         ) : (
           <span className="badge muted">لم يُسجَّل بعد</span>
@@ -128,10 +111,15 @@ export default function AdminUsers() {
       value: () => '',
       render: (u) => (
         <button
-          className={`btn btn-sm ${u.isActive ? 'secondary' : 'success'}`}
-          onClick={() => handleToggleActive(u)}
+          className="btn secondary btn-sm"
+          title="كلمة المرور، الجهاز، التفعيل، الحذف"
+          onClick={() => {
+            setError('');
+            setSuccess('');
+            setManageId(u.id);
+          }}
         >
-          {u.isActive ? 'تعطيل' : 'تفعيل'}
+          إدارة
         </button>
       ),
     },
@@ -141,7 +129,7 @@ export default function AdminUsers() {
     <div>
       <PageHeader
         title="المستخدمون"
-        subtitle="أضف الموظفين وعدّل أدوارهم وفعّل حساباتهم أو عطّلها، وأعد تعيين الجهاز المسجّل عند تغيير الموظف لهاتفه."
+        subtitle="أضف الموظفين وعدّل أدوارهم. من «إدارة» تغيّر كلمة المرور، وتعيد تعيين الجهاز، وتعطّل الحساب أو تحذفه."
         actions={
           <button
             className="btn"
@@ -162,6 +150,7 @@ export default function AdminUsers() {
       </Alert>
 
       <AddEmployeeModal open={showAdd} onClose={() => setShowAdd(false)} onCreated={handleCreated} />
+      {managed && <ManageUserModal user={managed} onClose={() => setManageId(null)} onDeleted={handleDeleted} />}
 
       <DateRangeFilter
         from={range.from}

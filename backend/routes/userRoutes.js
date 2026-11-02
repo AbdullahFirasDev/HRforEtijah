@@ -6,7 +6,10 @@ const {
   getMyTeam,
   updateUser,
   resetDevice,
+  changePassword,
+  deleteUser,
 } = require('../controllers/userController');
+const { body } = require('express-validator');
 const { protect, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { newUserRules } = require('../utils/userAccount');
@@ -23,5 +26,14 @@ router.post('/', authorize('admin'), newUserRules, validate, createUser);
 router.get('/team', authorize('manager', 'admin'), getMyTeam);
 router.patch('/:id', authorize('admin'), updateUser);
 router.patch('/:id/reset-device', authorize('admin'), resetDevice);
+// Passwords are changed and accounts deleted by admins only
+router.patch(
+  '/:id/password',
+  authorize('admin'),
+  [body('password', 'كلمة المرور يجب أن تكون 6 أحرف على الأقل').isString().isLength({ min: 6 })],
+  validate,
+  changePassword
+);
+router.delete('/:id', authorize('admin'), deleteUser);
 
 module.exports = router;

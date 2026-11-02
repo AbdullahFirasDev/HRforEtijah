@@ -36,6 +36,11 @@ const protect = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, 'الحساب غير موجود أو معطّل');
   }
 
+  // A password change ends every session opened before it.
+  if (user.passwordChangedAt && decoded.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)) {
+    throw new ApiError(401, 'تم تغيير كلمة مرور هذا الحساب. سجّل الدخول بكلمة المرور الجديدة.');
+  }
+
   // The session only works from the account's registered device, so a token
   // copied to another phone is useless.
   if (!isRegisteredDevice(user.deviceIdHash, req.get('x-device-id'))) {

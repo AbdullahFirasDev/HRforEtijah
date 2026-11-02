@@ -34,6 +34,18 @@ export function validateAccountForm({ name, email, password, role, managerId }) 
   };
 }
 
+export function validateNewPassword({ password, confirm }) {
+  let passwordError;
+  if (!password) passwordError = 'كلمة المرور الجديدة مطلوبة';
+  else if (password.length < MIN_PASSWORD) passwordError = `كلمة المرور يجب أن تكون ${MIN_PASSWORD} أحرف على الأقل`;
+
+  let confirmError;
+  if (!confirm) confirmError = 'أعد كتابة كلمة المرور للتأكيد';
+  else if (confirm !== password) confirmError = 'كلمتا المرور غير متطابقتين';
+
+  return { password: passwordError, confirm: confirmError };
+}
+
 // Applies one field change; switching away from "employee" clears the
 // manager, since managers and admins don't report to anyone.
 export const updateAccountForm = (form, { name, value }) =>

@@ -886,12 +886,7 @@ tbody tr:hover td {
   gap: var(--space-2);
 }
 
-/* Registered device in the users table: label + date, then the reset button */
-.device-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
+/* Registered device in the users table: label over date */
 .device-info {
   display: flex;
   flex-direction: column;
@@ -901,6 +896,45 @@ tbody tr:hover td {
 .device-info small {
   font-size: 12px;
   color: var(--muted);
+}
+
+/* Admin "manage account" window: one section per action, delete last */
+.modal-box.modal-wide {
+  max-width: 560px;
+}
+.manage-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: calc(var(--space-2) * -1) 0 var(--space-4);
+  font-size: 14px;
+  color: var(--muted);
+}
+.manage-section {
+  padding: var(--space-4) 0;
+  border-top: 2px dashed var(--line);
+}
+.manage-section h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 16px;
+  font-weight: 800;
+}
+.manage-section .form-note {
+  margin: 0 0 var(--space-3);
+}
+.manage-text {
+  margin: 0 0 var(--space-3);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.danger-zone h3 {
+  color: var(--brick-dark);
+}
+.manage-footer {
+  justify-content: flex-end;
+  padding-top: var(--space-4);
+  border-top: 2px dashed var(--line);
 }
 
 /* ---------- Modal ---------- */
