@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectCurrentUser, logout } from './features/auth/authSlice';
+import { apiSlice } from './features/api/apiSlice';
 import { hasValidRole } from './utils/roles';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
+import AppToasts from './components/AppToasts';
 
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -38,6 +40,23 @@ export default function App() {
     if (user && !loggedIn) dispatch(logout());
   }, [user, loggedIn, dispatch]);
 
+  // Drop cached data whenever a session ends (logout or timeout), so the
+  // next person on this device never sees the previous user's records.
+  const wasLoggedIn = useRef(loggedIn);
+  useEffect(() => {
+    if (wasLoggedIn.current && !loggedIn) dispatch(apiSlice.util.resetApiState());
+    wasLoggedIn.current = loggedIn;
+  }, [loggedIn, dispatch]);
+
+  return (
+    <>
+      <AppRoutes user={user} loggedIn={loggedIn} />
+      <AppToasts />
+    </>
+  );
+}
+
+function AppRoutes({ user, loggedIn }) {
   return (
     <Routes>
       <Route path="/login" element={loggedIn ? <Navigate to={`/${user.role}`} replace /> : <Login />} />

@@ -72,6 +72,21 @@ export const IconLogout = (p) => (
   </Svg>
 );
 
+export const IconDownload = (p) => (
+  <Svg {...p}>
+    <path d="M12 3v12M7 10l5 5 5-5" />
+    <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+  </Svg>
+);
+
+// iOS "Share" glyph: a box with an arrow pointing up
+export const IconShare = (p) => (
+  <Svg {...p}>
+    <path d="M12 3v12M8 7l4-4 4 4" />
+    <path d="M8 11H6a1 1 0 00-1 1v8a1 1 0 001 1h12a1 1 0 001-1v-8a1 1 0 00-1-1h-2" />
+  </Svg>
+);
+
 export const IconKey = (p) => (
   <Svg {...p}>
     <circle cx="7.5" cy="14.5" r="4.5" />

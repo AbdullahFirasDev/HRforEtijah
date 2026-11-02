@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../features/auth/authSlice';
 import { roleLabel } from '../utils/labels';
 import Header from './Header';
+import InstallBanner from './InstallBanner';
 import {
   IconDashboard,
   IconClock,
@@ -71,7 +72,10 @@ export default function Layout({ children }) {
           </nav>
         </aside>
 
-        <main className="main-content">{children}</main>
+        <main className="main-content">
+          <InstallBanner />
+          {children}
+        </main>
       </div>
     </div>
   );

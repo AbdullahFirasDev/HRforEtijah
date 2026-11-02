@@ -15,16 +15,17 @@
   --muted: #6f6253;
   --mustard: #f0b33c;
   --mustard-soft: #fbe8b8;
-  --orange: #e07a3f;
-  --teal: #2a7c76;
-  --teal-dark: #1e5c57;
-  --teal-soft: #d4ebe6;
+  /* Blue, orange and red come from the company logo */
+  --orange: #f15a2b;
+  --blue: #0b63a8;
+  --blue-dark: #084b82;
+  --blue-soft: #d6e6f5;
   --olive: #4f8a3c;
   --olive-dark: #3a6a2b;
   --olive-soft: #dcefd2;
-  --brick: #c4493a;
-  --brick-dark: #a23a2d;
-  --brick-soft: #f8dcd5;
+  --brick: #d8352f;
+  --brick-dark: #ad2921;
+  --brick-soft: #f9dad6;
   --amber: #d98a1c;
   --amber-dark: #8a5608;
   --amber-soft: #fcebc6;
@@ -32,8 +33,8 @@
   /* Names referenced from components */
   --color-bg: var(--paper);
   --color-surface: var(--surface);
-  --color-primary: var(--teal);
-  --color-primary-dark: var(--teal-dark);
+  --color-primary: var(--blue);
+  --color-primary-dark: var(--blue-dark);
   --color-success: var(--olive);
   --color-danger: var(--brick);
   --color-warning: var(--amber);
@@ -61,7 +62,7 @@
     var(--mustard) 0 25%,
     var(--orange) 25% 50%,
     var(--brick) 50% 75%,
-    var(--teal) 75% 100%
+    var(--blue) 75% 100%
   );
 }
 
@@ -93,7 +94,7 @@ h3 {
 }
 
 a {
-  color: var(--teal-dark);
+  color: var(--blue-dark);
   font-weight: 700;
   text-decoration: underline;
   text-decoration-thickness: 2px;
@@ -166,19 +167,20 @@ a:hover {
   min-width: 0;
 }
 .brand-logo {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--mustard);
-  color: var(--ink);
-  border: var(--border);
+  background: var(--surface);
+  border: 2px solid var(--mustard);
   border-radius: var(--radius-sm);
 }
-.app-header .brand-logo {
-  border-color: var(--paper);
+.brand-logo img {
+  display: block;
+  width: 32px;
+  height: 32px;
 }
 .app-header-text {
   display: flex;
@@ -187,8 +189,11 @@ a:hover {
   min-width: 0;
 }
 .app-header-title {
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .app-header-subtitle {
   font-size: 12px;
@@ -221,7 +226,7 @@ a:hover {
   font-size: 13px;
   font-weight: 700;
   color: var(--surface);
-  background: var(--teal);
+  background: var(--blue);
   border: var(--border);
   border-radius: 999px;
   box-shadow: var(--shadow-sm);
@@ -339,7 +344,7 @@ a:hover {
 }
 
 .stat-box {
-  --accent: var(--teal);
+  --accent: var(--blue);
   min-height: 116px;
   display: flex;
   flex-direction: column;
@@ -400,7 +405,7 @@ button.btn {
   font-weight: 700;
   line-height: 1.2;
   color: var(--surface);
-  background: var(--teal);
+  background: var(--blue);
   border: var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
@@ -408,7 +413,7 @@ button.btn {
   transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
 }
 button.btn:hover {
-  background: var(--teal-dark);
+  background: var(--blue-dark);
 }
 button.btn:active {
   transform: translate(-2px, 2px);
@@ -644,10 +649,10 @@ label {
   background: var(--amber);
 }
 .alert-info {
-  background: var(--teal-soft);
+  background: var(--blue-soft);
 }
 .alert-info .alert-icon {
-  background: var(--teal);
+  background: var(--blue);
 }
 
 /* ---------- Badges ---------- */
@@ -679,8 +684,8 @@ label {
   background: var(--paper-deep);
 }
 .badge.info {
-  color: var(--teal-dark);
-  background: var(--teal-soft);
+  color: var(--blue-dark);
+  background: var(--blue-soft);
 }
 
 /* ---------- Filter toolbar ---------- */
@@ -945,25 +950,23 @@ tbody tr:hover td {
   height: 8px;
   background: var(--stripes);
 }
-.auth-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin: var(--space-2) 0 var(--space-5);
-}
-.auth-brand-name {
-  font-size: 20px;
-  font-weight: 800;
+.auth-logo {
+  display: block;
+  width: 102px;
+  height: auto;
+  margin: var(--space-2) auto var(--space-4);
 }
 .auth-card h1 {
   margin: 0 0 var(--space-1);
   font-size: 24px;
   font-weight: 800;
+  text-align: center;
 }
 .auth-card p.sub {
   margin: 0 0 var(--space-5);
   color: var(--muted);
   font-weight: 600;
+  text-align: center;
 }
 .auth-footer {
   margin: var(--space-5) 0 0;
@@ -1075,8 +1078,8 @@ tbody tr:hover td {
   padding: 0 10px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--teal-dark);
-  background: var(--teal-soft);
+  color: var(--blue-dark);
+  background: var(--blue-soft);
   border: 1.5px solid var(--ink);
   border-radius: 999px;
 }
@@ -1084,6 +1087,88 @@ tbody tr:hover td {
   height: 0;
   margin: var(--space-3) 0;
   border-top: 2px dashed var(--line);
+}
+.profile-session {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: 13px;
+  background: var(--paper);
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius-sm);
+}
+
+/* Notices pinned to the bottom: offline, update ready, session countdown */
+.toast-stack {
+  position: fixed;
+  inset-inline: var(--space-4);
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.toast-stack .alert {
+  width: 100%;
+  max-width: 480px;
+  margin: 0;
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+.toast-actions {
+  margin-top: var(--space-2);
+}
+
+/* "Install the app" invitation */
+.install-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-5);
+  background: var(--blue-soft);
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.install-banner img {
+  flex: none;
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.install-banner-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.install-banner-text span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.inline-icon {
+  display: inline-block;
+  vertical-align: -3px;
+  color: var(--blue);
+}
+.install-banner-actions {
+  flex: none;
+  display: flex;
+  gap: var(--space-2);
+}
+/* The login card is narrow at every size: buttons get their own row */
+.auth-card .install-banner {
+  flex-wrap: wrap;
+  margin: var(--space-5) 0 0;
+}
+.auth-card .install-banner-actions {
+  flex: 1 1 100%;
+}
+.auth-card .install-banner-actions .btn {
+  flex: 1 1 0;
 }
 .profile-dropdown-item {
   display: flex;
@@ -1147,7 +1232,7 @@ tbody tr:hover td {
   fill: var(--muted);
 }
 .chart-bar {
-  fill: var(--teal);
+  fill: var(--blue);
   stroke: var(--ink);
   stroke-width: 1.5;
   cursor: pointer;
@@ -1315,6 +1400,26 @@ tbody tr:hover td {
   .profile-trigger-text,
   .profile-trigger .chevron {
     display: none;
+  }
+  .app-header-title {
+    font-size: 15px;
+  }
+  .install-banner {
+    flex-wrap: wrap;
+  }
+  .install-banner-actions {
+    flex: 1 1 100%;
+  }
+  .install-banner-actions .btn {
+    flex: 1 1 0;
+  }
+  .brand-logo {
+    width: 38px;
+    height: 38px;
+  }
+  .brand-logo img {
+    width: 28px;
+    height: 28px;
   }
   .profile-trigger {
     padding: var(--space-1);

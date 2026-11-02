@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { logout, SESSION_EXPIRED_NOTICE } from '../auth/authSlice';
 
 // Same-origin by default: on Vercel the backend service owns /api, and the
 // Vite dev server proxies /api to the local backend.
@@ -13,12 +14,22 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
+// A 401 on a signed-in request means the server ended the session (it timed
+// out, or the account was disabled), so sign out with the server's reason.
+const baseQueryWithSession = async (args, api, extraOptions) => {
+  const result = await baseQuery(args, api, extraOptions);
+  if (result.error?.status === 401 && api.getState().auth.token) {
+    api.dispatch(logout(result.error.data?.message || SESSION_EXPIRED_NOTICE));
+  }
+  return result;
+};
+
 // Central API slice. Feature-specific endpoints (auth, attendance, overtime,
 // users, reports) inject themselves into this via injectEndpoints so RTK
 // Query's caching/invalidation ("tags") works consistently across the app.
 export const apiSlice = createApi({
   reducerPath: 'api',
-  baseQuery,
+  baseQuery: baseQueryWithSession,
   tagTypes: ['Attendance', 'Overtime', 'User', 'Report'],
   endpoints: () => ({}),
 });

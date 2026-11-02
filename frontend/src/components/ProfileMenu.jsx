@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { logout } from '../features/auth/authSlice';
-import { apiSlice } from '../features/api/apiSlice';
+import { logout, selectSessionExpiresAt } from '../features/auth/authSlice';
 import { roleLabel } from '../utils/labels';
-import { IconChevronDown, IconLogout } from './icons';
+import { formatTime } from '../utils/format';
+import { getInstallPrompt, promptInstall, subscribeInstall } from '../utils/installPrompt';
+import { IconChevronDown, IconDownload, IconLogout } from './icons';
 
 // Skips the Arabic article "ال" (الكناني -> ك) and joins with a zero-width
 // non-joiner so two Arabic initials don't connect.
@@ -21,6 +22,8 @@ export default function ProfileMenu({ user }) {
   const ref = useRef(null);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const expiresAt = useSelector(selectSessionExpiresAt);
+  const canInstall = !!useSyncExternalStore(subscribeInstall, getInstallPrompt);
 
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -30,9 +33,9 @@ export default function ProfileMenu({ user }) {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
+  // App clears the cached API data when the session ends.
   const handleLogout = () => {
     dispatch(logout());
-    dispatch(apiSlice.util.resetApiState());
     navigate('/login');
   };
 
@@ -69,7 +72,28 @@ export default function ProfileMenu({ user }) {
               </div>
             </div>
           </div>
+          {expiresAt && (
+            <p className="profile-session">
+              تنتهي الجلسة تلقائياً الساعة <strong>{formatTime(expiresAt)}</strong>
+            </p>
+          )}
           <div className="profile-dropdown-divider" />
+          {canInstall && (
+            <button
+              type="button"
+              className="profile-dropdown-item"
+              onClick={() => {
+                setOpen(false);
+                promptInstall();
+              }}
+            >
+              <IconDownload size={18} />
+              <span>
+                تثبيت التطبيق
+                <small>أضفه إلى الشاشة الرئيسية لجهازك</small>
+              </span>
+            </button>
+          )}
           <button type="button" className="profile-dropdown-item danger" onClick={handleLogout}>
             <IconLogout size={18} />
             <span>

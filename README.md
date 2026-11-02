@@ -106,11 +106,14 @@ Both apps deploy as one Vercel project using [Vercel Services](https://vercel.co
 The frontend calls the API on the same origin (`/api`), so every preview deployment talks to its own backend and no `VITE_API_URL` or `CLIENT_URL` is needed.
 
 1. On [vercel.com](https://vercel.com) → New Project → import the repo with the root directory left at the repository root.
-2. Add the backend environment variables from `backend/.env.example` (`MONGO_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `STANDARD_SHIFT_HOURS`, `GEOFENCE_*`). Add `CLIENT_URL` only for extra custom domains.
+2. Add the backend environment variables from `backend/.env.example` (`MONGO_URI`, `JWT_SECRET`, `SESSION_TIMEOUT_MINUTES`, `STANDARD_SHIFT_HOURS`, `GEOFENCE_*`). Add `CLIENT_URL` only for extra custom domains.
 3. In MongoDB Atlas → Network Access, allow `0.0.0.0/0`: Vercel Functions don't have fixed outbound IPs.
 4. Deploy. To run both services locally the way Vercel routes them, use `vercel dev` from the repository root.
 
 On Vercel, logs go to the project's Runtime Logs instead of `logs/*.log` (the function filesystem is read-only).
+
+### Installing on phones (PWA)
+The frontend is an installable PWA (`vite-plugin-pwa`, configured in `frontend/vite.config.js`). Employees open the site and tap **تثبيت** (Android / desktop Chrome and Edge) or use Share → «إضافة إلى الشاشة الرئيسية» on iPhone. Installing needs HTTPS, which Vercel provides (plain `http://` only works on `localhost`). The service worker caches only the app shell and icons; `/api` responses are never cached, so attendance always comes from the server. When a new version is deployed, open apps show an "update available" notice instead of reloading on their own.
 
 ### One-time production data
 Run the seed script locally against your Atlas URI once (`MONGO_URI=<atlas-uri> npm run seed` from `backend/`) to create your first admin/manager/employee accounts, or just sign up through the UI (see Assumptions).

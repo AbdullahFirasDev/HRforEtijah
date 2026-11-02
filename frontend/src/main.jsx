@@ -1,3 +1,4 @@
+import './utils/installPrompt'; // first, so the one-time install event isn't missed
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Provider } from 'react-redux';

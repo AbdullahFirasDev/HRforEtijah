@@ -70,6 +70,8 @@ export default function DataTable({
             * { box-sizing: border-box; }
             body { font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; color: #2b2118; padding: 32px; }
             .doc-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 4px solid #2b2118; padding-bottom: 12px; margin-bottom: 20px; }
+            .doc-brand { display: flex; align-items: center; gap: 12px; }
+            .doc-brand img { width: 52px; height: 52px; }
             .doc-header h1 { font-size: 20px; margin: 0; }
             .doc-header span { font-size: 12px; color: #6f6253; }
             table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -82,11 +84,17 @@ export default function DataTable({
         </head>
         <body>
           <div class="doc-header">
-            <h1>${docTitle}</h1>
+            <div class="doc-brand">
+              <img src="${window.location.origin}/logo-mark.png" alt="" />
+              <div>
+                <h1>${docTitle}</h1>
+                <span>الاتجاه للسفر والسياحة</span>
+              </div>
+            </div>
             <span>تاريخ الإنشاء: ${formatDateTime(new Date())}</span>
           </div>
           <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
-          <div class="doc-footer">عدد السجلات: ${filteredRows.length} &middot; نظام الاتجاه للحضور</div>
+          <div class="doc-footer">عدد السجلات: ${filteredRows.length} &middot; الاتجاه للسفر والسياحة</div>
         </body>
       </html>
     `);

@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const User = require('../models/User');
+const { SESSION_TIMEOUT_MINUTES } = require('../config/session');
 
 // Verifies the JWT sent in the Authorization header and attaches the
 // authenticated user (without password) to req.user.
@@ -21,6 +22,11 @@ const protect = asyncHandler(async (req, res, next) => {
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch (err) {
+    throw new ApiError(401, 'انتهت الجلسة، يرجى تسجيل الدخول من جديد');
+  }
+
+  // Also covers tokens issued before the timeout was shortened.
+  if (Date.now() / 1000 - decoded.iat > SESSION_TIMEOUT_MINUTES * 60) {
     throw new ApiError(401, 'انتهت الجلسة، يرجى تسجيل الدخول من جديد');
   }
 

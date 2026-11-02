@@ -56,10 +56,13 @@ app.use(
   })
 );
 
-// Basic rate limiting to slow down brute-force login attempts
+// Basic rate limiting to slow down brute-force login attempts. Only failed
+// requests count, so staff behind one office IP signing in again every
+// session don't lock each other out.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
+  skipSuccessfulRequests: true,
   message: { success: false, message: 'محاولات كثيرة، يرجى المحاولة بعد قليل' },
 });
 app.use('/api/auth', authLimiter);

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useLoginMutation } from '../features/api/authApi';
-import { setCredentials } from '../features/auth/authSlice';
+import { selectAuthNotice, setCredentials } from '../features/auth/authSlice';
 import AuthLayout from '../components/AuthLayout';
 import Field from '../components/Field';
 import Alert from '../components/Alert';
@@ -13,6 +13,7 @@ export default function Login() {
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
   const [login, { isLoading }] = useLoginMutation();
+  const notice = useSelector(selectAuthNotice);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -47,6 +48,7 @@ export default function Login() {
         </p>
       }
     >
+      <Alert type="warning">{notice}</Alert>
       <form onSubmit={handleSubmit} noValidate>
         <Field id="login-email" label="البريد الإلكتروني" required error={errors.email}>
           <input
