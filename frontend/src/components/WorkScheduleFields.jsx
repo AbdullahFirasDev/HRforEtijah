@@ -1,18 +1,29 @@
 import { formatHours } from '../utils/format';
-import { DAY_NAMES, MAX_SESSIONS_PER_DAY, clockHours, formWeeklyTotal } from '../utils/workSchedule';
+import {
+  DAY_NAMES,
+  MAX_SESSIONS_PER_DAY,
+  MAX_SHIFTS_PER_DAY,
+  dayFormHours,
+  formWeeklyTotal,
+  shiftsText,
+} from '../utils/workSchedule';
 
-// Weekly schedule (each day: off, or working with its own from/to hours) and
-// the multiple check-in exception, shared by the "add employee" and "manage
-// account" windows. value: { days: [{ day, off, start, end }], allowMultiple }
+// Weekly schedule — each day off, or working in one or more periods (e.g.
+// 09:00–15:00 and 17:00–23:00 around a break) — and the multiple check-in
+// exception, shared by the "add employee" and "manage account" windows.
+// value: { days: [{ day, off, shifts: [{ start, end }] }], allowMultiple }
 export default function WorkScheduleFields({ idPrefix, value, errors, onChange }) {
   const id = (name) => `${idPrefix}-${name}`;
   const setDay = (day, patch) =>
     onChange({ ...value, days: value.days.map((d) => (d.day === day ? { ...d, ...patch } : d)) });
-  // The first working day with hours can be copied to the others
-  const template = value.days.find((d) => !d.off && d.start && d.end && d.end > d.start);
-  const copyTemplate = () =>
-    onChange({ ...value, days: value.days.map((d) => (d.off ? d : { ...d, start: template.start, end: template.end })) });
-  const total = formWeeklyTotal(value);
+  const setShift = (d, i, patch) => setDay(d.day, { shifts: d.shifts.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
+
+  // The first working day with complete periods can be copied to the others
+  const template = value.days.find((d) => !d.off && dayFormHours(d) > 0);
+  const copyTemplate = () => {
+    const shifts = template.shifts.filter((s) => s.start && s.end);
+    onChange({ ...value, days: value.days.map((d) => (d.off ? d : { ...d, shifts: shifts.map((s) => ({ ...s })) })) });
+  };
 
   return (
     <>
@@ -22,18 +33,17 @@ export default function WorkScheduleFields({ idPrefix, value, errors, onChange }
           <div className="week-head" aria-hidden="true">
             <span>اليوم</span>
             <span />
-            <span>من</span>
-            <span>إلى</span>
+            <span>فترات الدوام (من – إلى)</span>
           </div>
           {value.days.map((d) => {
             const name = DAY_NAMES[d.day];
             const error = errors[`day${d.day}`];
-            const valid = !d.off && d.start && d.end && d.end > d.start;
+            const hours = dayFormHours(d);
             return (
               <div key={d.day} className={['week-row', d.off && 'is-off'].filter(Boolean).join(' ')}>
                 <span className="week-day">
                   {name}
-                  <small>{d.off ? 'إجازة' : valid ? formatHours(clockHours(d.start, d.end)) : 'دوام مرن'}</small>
+                  <small>{d.off ? 'إجازة' : hours > 0 ? formatHours(hours) : 'دوام مرن'}</small>
                 </span>
                 <label className="day-chip week-off">
                   <input
@@ -47,28 +57,52 @@ export default function WorkScheduleFields({ idPrefix, value, errors, onChange }
                 {d.off ? (
                   <span className="week-off-text">يوم إجازة أسبوعية</span>
                 ) : (
-                  <>
-                    <input
-                      id={id(`start-${d.day}`)}
-                      className="week-start"
-                      type="time"
-                      dir="ltr"
-                      value={d.start}
-                      onChange={(e) => setDay(d.day, { start: e.target.value })}
-                      aria-label={`بداية دوام ${name}`}
-                      aria-invalid={!!error}
-                    />
-                    <input
-                      id={id(`end-${d.day}`)}
-                      className="week-end"
-                      type="time"
-                      dir="ltr"
-                      value={d.end}
-                      onChange={(e) => setDay(d.day, { end: e.target.value })}
-                      aria-label={`نهاية دوام ${name}`}
-                      aria-invalid={!!error}
-                    />
-                  </>
+                  <div className="week-periods">
+                    {d.shifts.map((s, i) => (
+                      <div key={i} className="week-period">
+                        <input
+                          id={id(`start-${d.day}-${i}`)}
+                          type="time"
+                          dir="ltr"
+                          value={s.start}
+                          onChange={(e) => setShift(d, i, { start: e.target.value })}
+                          aria-label={`بداية الفترة ${i + 1} يوم ${name}`}
+                          aria-invalid={!!error}
+                        />
+                        <input
+                          id={id(`end-${d.day}-${i}`)}
+                          type="time"
+                          dir="ltr"
+                          value={s.end}
+                          onChange={(e) => setShift(d, i, { end: e.target.value })}
+                          aria-label={`نهاية الفترة ${i + 1} يوم ${name}`}
+                          aria-invalid={!!error}
+                        />
+                        {d.shifts.length > 1 ? (
+                          <button
+                            type="button"
+                            className="period-remove"
+                            onClick={() => setDay(d.day, { shifts: d.shifts.filter((_, j) => j !== i) })}
+                            aria-label={`حذف الفترة ${i + 1} يوم ${name}`}
+                            title="حذف الفترة"
+                          >
+                            ×
+                          </button>
+                        ) : (
+                          <span />
+                        )}
+                      </div>
+                    ))}
+                    {d.shifts.length < MAX_SHIFTS_PER_DAY && (
+                      <button
+                        type="button"
+                        className="period-add"
+                        onClick={() => setDay(d.day, { shifts: [...d.shifts, { start: '', end: '' }] })}
+                      >
+                        + فترة أخرى في {name}
+                      </button>
+                    )}
+                  </div>
                 )}
                 {error && <p className="field-error week-error">{error}</p>}
               </div>
@@ -77,15 +111,17 @@ export default function WorkScheduleFields({ idPrefix, value, errors, onChange }
         </div>
         {errors.offDays && <p className="field-error">{errors.offDays}</p>}
         <div className="week-footer">
-          <span className="week-total">مجموع الساعات المحددة أسبوعياً: {formatHours(total)}</span>
+          <span className="week-total">مجموع الساعات المحددة أسبوعياً: {formatHours(formWeeklyTotal(value))}</span>
           {template && (
             <button type="button" className="btn secondary btn-sm" onClick={copyTemplate}>
-              نسخ ساعات {DAY_NAMES[template.day]} إلى كل أيام العمل
+              نسخ دوام {DAY_NAMES[template.day]} ({shiftsText(template.shifts.filter((s) => s.start && s.end))}) إلى كل أيام
+              العمل
             </button>
           )}
         </div>
         <p className="field-hint">
-          يُحسب التأخير والانصراف المبكر على ساعات كل يوم. يوم العمل بلا ساعات «دوام مرن»: لا يُحسب فيه تأخير، ويكتمل بعدد
+          لمن يعمل على فترتين (مثلاً 9 ص – 3 م ثم 5 م – 11 م) أضف «فترة أخرى»؛ يسجّل حضوره وانصرافه لكل فترة، ويُغلق دوامه
+          تلقائياً عند نهاية كل فترة إن لم يسجّل انصرافه. يوم العمل بلا ساعات «دوام مرن»: لا يُحسب فيه تأخير، ويكتمل بعدد
           الساعات الافتراضي.
         </p>
       </fieldset>

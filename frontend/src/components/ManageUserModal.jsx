@@ -11,7 +11,7 @@ import {
 import Field from './Field';
 import Alert from './Alert';
 import WorkScheduleFields from './WorkScheduleFields';
-import { formatDate } from '../utils/format';
+import { formatDate, todayStr } from '../utils/format';
 import { roleLabel } from '../utils/labels';
 import { MIN_PASSWORD, hasErrors, validateNewPassword, validateWorkSchedule } from '../utils/validation';
 import { workFormFrom, workPayload } from '../utils/workSchedule';
@@ -35,6 +35,7 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
 
   const [work, setWork] = useState(() => workFormFrom(user));
   const [workErrors, setWorkErrors] = useState({});
+  const [applyMonth, setApplyMonth] = useState(false);
   const [pw, setPw] = useState(EMPTY_PASSWORD);
   const [pwErrors, setPwErrors] = useState({});
   const [feedback, setFeedback] = useState(null);
@@ -72,12 +73,23 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
     setWorkErrors({});
   };
 
-  const saveWork = (e) => {
+  const saveWork = async (e) => {
     e.preventDefault();
     const found = validateWorkSchedule(work);
     setWorkErrors(found);
     if (hasErrors(found)) return;
-    run(() => updateUser({ id: user.id, ...workPayload(work) }), `تم حفظ دوام ${user.name}.`);
+    setFeedback(null);
+    try {
+      const applyFrom = applyMonth ? `${todayStr().slice(0, 8)}01` : undefined;
+      const res = await updateUser({ id: user.id, ...workPayload(work), applyFrom }).unwrap();
+      setFeedback({
+        type: 'success',
+        text: `تم حفظ دوام ${user.name}.` + (applyMonth ? ` وأُعيد حساب ${res.reapplied} من أيام هذا الشهر المسجّلة حسب الدوام الجديد.` : ''),
+      });
+      setApplyMonth(false);
+    } catch (err) {
+      setFeedback({ type: 'error', text: err?.data?.message || 'تعذر حفظ الدوام. حاول مرة أخرى.' });
+    }
   };
 
   const handlePasswordChange = (e) => {
@@ -149,6 +161,16 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
             </p>
             <form onSubmit={saveWork} noValidate>
               <WorkScheduleFields idPrefix="manage-work" value={work} errors={workErrors} onChange={handleWorkChange} />
+              <label className="check-row" htmlFor="manage-work-apply">
+                <input id="manage-work-apply" type="checkbox" checked={applyMonth} onChange={(e) => setApplyMonth(e.target.checked)} />
+                <span>
+                  <strong>تطبيق الدوام أيضاً على الأيام المسجّلة من بداية هذا الشهر</strong>
+                  <small>
+                    يُعاد حساب الساعات والتأخير والانصراف المبكر لتلك الأيام حسب هذا الدوام. اتركه دون تحديد إن تغيّر الدوام من
+                    اليوم فقط.
+                  </small>
+                </span>
+              </label>
               <button type="submit" className="btn" disabled={updating}>
                 {updating ? 'جارٍ الحفظ...' : 'حفظ الدوام'}
               </button>

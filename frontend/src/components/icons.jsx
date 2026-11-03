@@ -65,6 +65,22 @@ export const IconShieldCheck = (p) => (
   </Svg>
 );
 
+export const IconTimesheet = (p) => (
+  <Svg {...p}>
+    <rect x="4" y="4" width="16" height="17" rx="2" />
+    <path d="M9 2.5h6v3H9z" />
+    <path d="M8 10h8M8 14h8M8 18h5" />
+  </Svg>
+);
+
+export const IconHourglass = (p) => (
+  <Svg {...p}>
+    <path d="M7 3h10M7 21h10" />
+    <path d="M8 3c0 4 8 5 8 9s-8 5-8 9" />
+    <path d="M16 3c0 4-8 5-8 9s8 5 8 9" />
+  </Svg>
+);
+
 export const IconMapPin = (p) => (
   <Svg {...p}>
     <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0113 0c0 5.4-6.5 11-6.5 11z" />

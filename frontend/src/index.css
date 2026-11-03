@@ -1534,7 +1534,7 @@ tbody tr:hover td {
 .week-head,
 .week-row {
   display: grid;
-  grid-template-columns: 92px 78px minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 92px 78px minmax(0, 1fr);
   gap: var(--space-2);
   align-items: center;
 }
@@ -1577,6 +1577,41 @@ tbody tr:hover td {
   grid-column: 3 / -1;
   font-size: 13px;
   color: var(--muted);
+}
+/* A day's work periods: from / to / remove, one line each */
+.week-periods {
+  display: grid;
+  gap: var(--space-2);
+}
+.week-period {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px;
+  gap: var(--space-2);
+  align-items: center;
+}
+.period-remove {
+  width: 32px;
+  height: 32px;
+  font-family: inherit;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--brick-dark);
+  background: var(--brick-soft);
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.period-add {
+  justify-self: start;
+  padding: 2px var(--space-2);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blue-dark);
+  background: none;
+  border: 1.5px dashed var(--blue);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
 }
 .week-error {
   grid-column: 1 / -1;
@@ -1625,6 +1660,213 @@ tbody tr:hover td {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* Countdown to a period's automatic close, with the extend option */
+.closing-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 520px;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  font-size: 14px;
+  background: var(--blue-soft);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+.closing-banner.is-soon {
+  background: var(--amber-soft);
+}
+.closing-banner p {
+  flex: 1 1 260px;
+  margin: 0;
+  line-height: 1.7;
+}
+.closing-left {
+  display: inline-block;
+  font-weight: 800;
+}
+.extend-panel {
+  flex: 1 1 100%;
+  padding-top: var(--space-3);
+  border-top: 2px dashed var(--line);
+}
+.extend-question {
+  margin: 0 0 var(--space-2);
+  font-weight: 700;
+}
+.extend-panel .day-chips {
+  margin-bottom: var(--space-3);
+}
+.missed-line {
+  display: block;
+}
+
+/* Admin correction of a day's times */
+.edit-periods {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.edit-period {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 32px;
+  gap: var(--space-2);
+  align-items: center;
+}
+.edit-period-head {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.edit-period input[type='time'] {
+  min-height: 40px;
+  padding: var(--space-1) var(--space-2);
+}
+.edit-period-notes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  padding-inline-start: calc(28px + var(--space-2));
+}
+.edit-period-notes .field-error {
+  margin: 0;
+}
+.edit-history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.edit-history li {
+  padding: var(--space-2) 0;
+  border-bottom: 1.5px dashed var(--line);
+}
+.edit-history li:last-child {
+  border-bottom: none;
+}
+.edit-history small {
+  display: block;
+  color: var(--muted);
+}
+
+/* Time leave request: one card per kind of leave */
+.choice-cards {
+  display: grid;
+  gap: var(--space-2);
+}
+label.choice-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  font-weight: 400;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.choice-card input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin-top: 3px;
+  padding: 0;
+  accent-color: var(--blue);
+}
+.choice-card:has(input:checked) {
+  background: var(--mustard-soft);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+.choice-card strong {
+  display: block;
+  font-size: 14px;
+}
+.choice-card small {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+}
+.duration-chips {
+  margin: calc(var(--space-2) * -1) 0 var(--space-4);
+}
+.chip-button {
+  height: 32px;
+  padding: 0 var(--space-3);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.chip-button.is-on {
+  background: var(--mustard);
+}
+
+/* Timesheets */
+.stat-box .sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.schedule-mismatch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  font-size: 14px;
+  line-height: 1.7;
+  background: var(--amber-soft);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+.schedule-mismatch p {
+  flex: 1 1 320px;
+  margin: 0;
+}
+.month-bar {
+  align-items: center;
+}
+.month-label {
+  min-width: 120px;
+  font-size: 17px;
+  text-align: center;
+}
+.timesheet-person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.timesheet-person h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+.timesheet-totals .stat-box .value {
+  font-size: 18px;
+}
+.stat-box.tone-neg .value {
+  color: var(--brick-dark);
+}
+.stat-box.tone-pos .value {
+  color: var(--olive-dark);
 }
 
 /* Row selection in tables (admin deletes attendance records) */
@@ -1895,12 +2137,15 @@ tbody tr.row-selected td {
   .data-table tr.row-selected {
     background: var(--mustard-soft);
   }
-  /* Schedule rows: day and "off" on top, the two times underneath */
+  /* Schedule rows: day and "off" on top, the periods underneath */
   .week-head {
     display: none;
   }
   .week-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .week-periods {
+    grid-column: 1 / -1;
   }
   .week-off {
     justify-self: end;

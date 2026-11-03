@@ -46,19 +46,43 @@ export function validateNewPassword({ password, confirm }) {
   return { password: passwordError, confirm: confirmError };
 }
 
-// Each working day may have hours (both ends, same day) or none (flexible)
+// Each working day has one or more periods (each with both ends, in order,
+// not overlapping) or none at all (flexible hours)
 export function validateWorkSchedule({ days }) {
   const errors = {};
   for (const d of days) {
     let message;
     if (!d.off) {
-      if (d.start && !d.end) message = 'حدّد وقت نهاية الدوام';
-      else if (d.end && !d.start) message = 'حدّد وقت بداية الدوام';
-      else if (d.start && d.end && d.end <= d.start) message = 'وقت النهاية يجب أن يكون بعد وقت البداية';
+      const filled = d.shifts.filter((s) => s.start || s.end);
+      if (filled.some((s) => s.start && !s.end)) message = 'حدّد وقت نهاية الدوام';
+      else if (filled.some((s) => s.end && !s.start)) message = 'حدّد وقت بداية الدوام';
+      else if (filled.some((s) => s.end <= s.start)) message = 'وقت النهاية يجب أن يكون بعد وقت البداية';
+      else {
+        const sorted = [...filled].sort((a, b) => a.start.localeCompare(b.start));
+        if (sorted.some((s, i) => i > 0 && s.start < sorted[i - 1].end)) message = 'فترات الدوام في هذا اليوم متداخلة';
+      }
     }
     errors[`day${d.day}`] = message;
   }
   errors.offDays = days.every((d) => d.off) ? 'لا يمكن أن تكون كل أيام الأسبوع إجازة' : undefined;
+  return errors;
+}
+
+// Admin correction of a day's periods: each needs a check-in and (except a
+// period still running today) a later check-out, in order without overlaps
+export function validatePeriods({ periods, reason, isToday }) {
+  const errors = {};
+  const order = periods.map((p, i) => ({ ...p, i })).sort((a, b) => (a.in || '').localeCompare(b.in || ''));
+  order.forEach((p, k) => {
+    let message;
+    const lastOne = k === order.length - 1;
+    if (!p.in) message = 'حدّد وقت الحضور';
+    else if (!p.out && !(isToday && lastOne)) message = 'حدّد وقت الانصراف';
+    else if (p.out && p.out <= p.in) message = 'وقت الانصراف يجب أن يكون بعد وقت الحضور';
+    else if (k > 0 && order[k - 1].out && p.in < order[k - 1].out) message = 'تبدأ هذه الفترة قبل انتهاء الفترة السابقة';
+    errors[`p${p.i}`] = message;
+  });
+  errors.reason = String(reason || '').trim().length >= 3 ? undefined : 'اكتب سبب التعديل (3 أحرف على الأقل)';
   return errors;
 }
 

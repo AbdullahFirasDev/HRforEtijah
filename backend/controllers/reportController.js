@@ -63,6 +63,10 @@ const getDailyReport = asyncHandler(async (req, res) => {
       lateMinutes: r.lateMinutes || 0,
       earlyLeaveMinutes: r.earlyLeaveMinutes || 0,
       dayOff: !!r.schedule?.dayOff,
+      missedPunchOut: !!r.missedPunchOut,
+      edited: !!r.edits?.length,
+      overtimeMinutes: r.overtimeMinutes || 0,
+      leaveMinutes: r.leaveMinutes || 0,
       validationStatus: r.validation?.status,
       validationRemarks: r.validation?.remarks,
     };
@@ -93,6 +97,8 @@ const exportDailyReportCsv = asyncHandler(async (req, res) => {
     'Late (min)',
     'Early Leave (min)',
     'Day Off',
+    'Missed Punch-out',
+    'Overtime (min)',
     'Validation',
     'Remarks',
   ];
@@ -111,6 +117,8 @@ const exportDailyReportCsv = asyncHandler(async (req, res) => {
     r.lateMinutes || 0,
     r.earlyLeaveMinutes || 0,
     r.schedule?.dayOff ? 'Yes' : 'No',
+    r.missedPunchOut ? 'Yes' : 'No',
+    r.overtimeMinutes || 0,
     r.validation?.status || 'Pending',
     (r.validation?.remarks || '').replace(/,/g, ';'),
   ]);

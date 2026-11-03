@@ -21,6 +21,9 @@ import AttendanceValidation from './pages/AttendanceValidation';
 import AdminUsers from './pages/AdminUsers';
 import AdminAttendance from './pages/AdminAttendance';
 import GeofenceSettings from './pages/GeofenceSettings';
+import Timesheets from './pages/Timesheets';
+import TimeLeaves from './pages/TimeLeaves';
+import TimeLeaveApprovals from './pages/TimeLeaveApprovals';
 
 function withLayout(Component) {
   return (
@@ -68,6 +71,8 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/employee/dashboard" element={withLayout(EmployeeSummary)} />
         <Route path="/employee" element={withLayout(EmployeeDashboard)} />
         <Route path="/employee/history" element={withLayout(AttendanceHistory)} />
+        <Route path="/employee/timesheet" element={withLayout(Timesheets)} />
+        <Route path="/employee/time-leaves" element={withLayout(TimeLeaves)} />
         <Route path="/employee/overtime" element={withLayout(OvertimeRequests)} />
         <Route path="/employee/reports" element={withLayout(Reports)} />
       </Route>
@@ -75,6 +80,8 @@ function AppRoutes({ user, loggedIn }) {
       {/* Manager routes */}
       <Route element={<ProtectedRoute allowedRoles={['manager']} />}>
         <Route path="/manager" element={withLayout(TeamAttendance)} />
+        <Route path="/manager/timesheet" element={withLayout(Timesheets)} />
+        <Route path="/manager/time-leaves" element={withLayout(TimeLeaveApprovals)} />
         <Route path="/manager/overtime" element={withLayout(OvertimeApprovals)} />
         <Route path="/manager/validation" element={withLayout(AttendanceValidation)} />
         <Route path="/manager/reports" element={withLayout(Reports)} />
@@ -84,6 +91,8 @@ function AppRoutes({ user, loggedIn }) {
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route path="/admin" element={withLayout(AdminUsers)} />
         <Route path="/admin/attendance" element={withLayout(AdminAttendance)} />
+        <Route path="/admin/timesheet" element={withLayout(Timesheets)} />
+        <Route path="/admin/time-leaves" element={withLayout(TimeLeaveApprovals)} />
         <Route path="/admin/overtime" element={withLayout(OvertimeApprovals)} />
         <Route path="/admin/validation" element={withLayout(AttendanceValidation)} />
         <Route path="/admin/reports" element={withLayout(Reports)} />

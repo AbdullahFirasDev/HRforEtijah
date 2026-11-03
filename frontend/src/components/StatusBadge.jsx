@@ -9,6 +9,7 @@ const VARIANT_MAP = {
   Pending: 'muted',
   Approved: 'success',
   Rejected: 'danger',
+  Cancelled: 'muted',
 };
 
 export default function StatusBadge({ status }) {

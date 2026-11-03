@@ -5,6 +5,8 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { createUserAccount } = require('../utils/userAccount');
 const { workSettingsFrom } = require('../utils/schedule');
+const { reapplySchedule } = require('../utils/attendanceDay');
+const { todayLocal } = require('../utils/dateUtils');
 
 // @desc  Get all users (admin) with optional role filter
 // @route GET /api/users
@@ -67,7 +69,9 @@ const updateUser = asyncHandler(async (req, res) => {
   user.set(workSettingsFrom(req.body));
 
   await user.save();
-  res.json({ success: true, user: user.toSafeObject() });
+  // Optionally recalculate already recorded days on the new schedule
+  const reapplied = req.body.applyFrom ? await reapplySchedule(user, req.body.applyFrom, todayLocal()) : 0;
+  res.json({ success: true, user: user.toSafeObject(), reapplied });
 });
 
 // @desc  Admin frees a user's registered device (new phone, cleared browser);

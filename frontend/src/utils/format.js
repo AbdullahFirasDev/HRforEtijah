@@ -28,6 +28,13 @@ export const formatTime = (value) => {
   return d.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 };
 
+// e.g. "05:00 م" (no seconds), for times people plan around
+export const formatClockTime = (value) => {
+  const d = toDate(value);
+  if (!d) return '-';
+  return d.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: true });
+};
+
 // e.g. "2025-05-27 10:00:01 ص"
 export const formatDateTime = (value) => {
   const d = toDate(value);

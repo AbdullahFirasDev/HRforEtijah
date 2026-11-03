@@ -9,6 +9,7 @@ export const STATUS_LABELS = {
   Pending: 'قيد الانتظار',
   Approved: 'مقبول',
   Rejected: 'مرفوض',
+  Cancelled: 'ملغاة',
 };
 
 export const ROLE_LABELS = {

@@ -16,6 +16,8 @@ const overtimeRoutes = require('./routes/overtimeRoutes');
 const userRoutes = require('./routes/userRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const timesheetRoutes = require('./routes/timesheetRoutes');
+const timeLeaveRoutes = require('./routes/timeLeaveRoutes');
 
 connectDB();
 
@@ -88,6 +90,8 @@ app.use('/api/overtime', overtimeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/timesheets', timesheetRoutes);
+app.use('/api/time-leaves', timeLeaveRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

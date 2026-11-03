@@ -42,6 +42,10 @@ export const attendanceNotes = (r) => {
       text: `انصراف مبكر ${formatMinutes(r.earlyLeaveMinutes)}`,
       variant: 'warning',
     },
+    r.missedPunchOut && { key: 'missed', text: 'انصراف تلقائي', variant: 'danger' },
+    r.overtimeMinutes > 0 && { key: 'overtime', text: `إضافي ${formatMinutes(r.overtimeMinutes)}`, variant: 'info' },
+    r.leaveMinutes > 0 && { key: 'leave', text: `زمنية ${formatMinutes(r.leaveMinutes)}`, variant: 'info' },
+    (r.edited ?? r.edits?.length > 0) && { key: 'edited', text: 'معدّل يدوياً', variant: 'muted' },
     periods > 1 && { key: 'periods', text: periods === 2 ? 'فترتان' : `${periods} فترات`, variant: 'muted' },
   ].filter(Boolean);
 };

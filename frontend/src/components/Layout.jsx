@@ -14,6 +14,8 @@ import {
   IconUsers,
   IconShieldCheck,
   IconMapPin,
+  IconTimesheet,
+  IconHourglass,
 } from './icons';
 
 const NAV_ITEMS = {
@@ -21,11 +23,15 @@ const NAV_ITEMS = {
     { to: '/employee/dashboard', label: 'لوحة المعلومات', icon: IconDashboard },
     { to: '/employee', label: 'تسجيل الحضور والانصراف', end: true, icon: IconClock },
     { to: '/employee/history', label: 'سجل حضوري', icon: IconCalendar },
+    { to: '/employee/time-leaves', label: 'الزمنيات', icon: IconHourglass },
+    { to: '/employee/timesheet', label: 'كشفي الشهري', icon: IconTimesheet },
     { to: '/employee/overtime', label: 'طلبات العمل الإضافي', icon: IconClockPlus },
     { to: '/employee/reports', label: 'تقاريري', icon: IconChart },
   ],
   manager: [
     { to: '/manager', label: 'حضور الفريق', end: true, icon: IconUsers },
+    { to: '/manager/time-leaves', label: 'الزمنيات', icon: IconHourglass },
+    { to: '/manager/timesheet', label: 'الكشف الشهري', icon: IconTimesheet },
     { to: '/manager/overtime', label: 'اعتماد العمل الإضافي', icon: IconClockPlus },
     { to: '/manager/validation', label: 'التحقق من الصور', icon: IconShieldCheck },
     { to: '/manager/reports', label: 'التقارير', icon: IconChart },
@@ -33,6 +39,8 @@ const NAV_ITEMS = {
   admin: [
     { to: '/admin', label: 'المستخدمون', end: true, icon: IconUsers },
     { to: '/admin/attendance', label: 'سجل الحضور العام', icon: IconCalendar },
+    { to: '/admin/time-leaves', label: 'الزمنيات', icon: IconHourglass },
+    { to: '/admin/timesheet', label: 'الكشف الشهري', icon: IconTimesheet },
     { to: '/admin/overtime', label: 'اعتماد العمل الإضافي', icon: IconClockPlus },
     { to: '/admin/validation', label: 'التحقق من الصور', icon: IconShieldCheck },
     { to: '/admin/reports', label: 'التقارير', icon: IconChart },

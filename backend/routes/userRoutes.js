@@ -25,7 +25,13 @@ router.use(protect);
 router.get('/', authorize('admin'), getAllUsers);
 router.post('/', authorize('admin'), [...newUserRules, ...workSettingsRules], validate, createUser);
 router.get('/team', authorize('manager', 'admin'), getMyTeam);
-router.patch('/:id', authorize('admin'), workSettingsRules, validate, updateUser);
+router.patch(
+  '/:id',
+  authorize('admin'),
+  [...workSettingsRules, body('applyFrom', 'تاريخ تطبيق الدوام غير صحيح').optional({ values: 'falsy' }).matches(/^\d{4}-\d{2}-\d{2}$/)],
+  validate,
+  updateUser
+);
 router.patch('/:id/reset-device', authorize('admin'), resetDevice);
 // Passwords are changed and accounts deleted by admins only
 router.patch(

@@ -10,6 +10,7 @@ import Alert from '../components/Alert';
 import AttendanceNotes from '../components/AttendanceNotes';
 import SessionSelfies from '../components/SessionSelfies';
 import DeleteAttendanceModal from '../components/DeleteAttendanceModal';
+import EditTimesModal from '../components/EditTimesModal';
 import { formatHours, formatTime } from '../utils/format';
 import { statusLabel } from '../utils/labels';
 import { notesText } from '../utils/attendance';
@@ -21,6 +22,7 @@ export default function AdminAttendance() {
   const [modalSrc, setModalSrc] = useState(null);
   const [selected, setSelected] = useState([]);
   const [toDelete, setToDelete] = useState(null);
+  const [editing, setEditing] = useState(null);
   const [deleteError, setDeleteError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -78,7 +80,7 @@ export default function AdminAttendance() {
 
   return (
     <div>
-      <PageHeader title="سجل الحضور العام" subtitle="لحذف سجلات خاطئة حدّدها من المربع بجانب كل سجل، ثم اضغط «حذف المحدد»." />
+      <PageHeader title="سجل الحضور العام" subtitle="حدّد سجلاً من المربع بجانبه لتعديل أوقات حضوره وانصرافه، أو حدّد سجلاً أو أكثر لحذفها. ولإضافة يوم لم يُسجَّل فيه حضور استخدم «الزمنيات»." />
       <Alert type="success" onClose={() => setSuccess('')}>
         {success}
       </Alert>
@@ -96,6 +98,18 @@ export default function AdminAttendance() {
           <span>
             تم تحديد {selectedRows.length === 1 ? 'سجل واحد' : `${selectedRows.length} سجلات`}
           </span>
+          {selectedRows.length === 1 && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => {
+                setSuccess('');
+                setEditing(selectedRows[0]);
+              }}
+            >
+              تعديل الأوقات
+            </button>
+          )}
           <button type="button" className="btn danger btn-sm" onClick={askDelete}>
             حذف المحدد
           </button>
@@ -117,6 +131,19 @@ export default function AdminAttendance() {
           fileName="all-attendance"
           selected={selected}
           onSelectedChange={setSelected}
+        />
+      )}
+      {editing && (
+        <EditTimesModal
+          recordId={editing._id}
+          userName={editing.user?.name}
+          date={editing.date}
+          onClose={() => setEditing(null)}
+          onSaved={(message) => {
+            setEditing(null);
+            setSelected([]);
+            setSuccess(message);
+          }}
         />
       )}
       {toDelete && (
