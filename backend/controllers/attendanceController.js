@@ -9,6 +9,7 @@ const { todayLocal, addDays, endOfLocalDay, clockText } = require('../utils/date
 const { MAX_SESSIONS_PER_DAY, dayPlan, planShifts, weekPlan, targetHours, allowedSessions } = require('../utils/schedule');
 const TimeLeave = require('../models/TimeLeave');
 const {
+  AUTO_CLOSE_GRACE_MINUTES,
   autoCloseTime,
   closeOpenSession,
   loadLeaves,
@@ -210,6 +211,7 @@ const getTodayStatus = asyncHandler(async (req, res) => {
       dayOff: !!plan.dayOff,
       allowMultiplePunches: !!req.user.allowMultiplePunches,
       maxSessions: allowedSessions(req.user, plan),
+      closeGraceMinutes: AUTO_CLOSE_GRACE_MINUTES,
       week: weekPlan(req.user),
       leaves,
       recentMissed: missed.map((r) => ({

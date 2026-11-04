@@ -9,12 +9,14 @@ const { dayPlan, planShifts, samePlan, targetHours, toMinutes } = require('./sch
 // overtime, approved time leaves (زمنيات), and closing a period nobody
 // checked out of. Each open period has an automatic closing time
 // (`autoCloseAt`): the end of its work period, the start of an approved
-// early-departure leave, or the time the employee extended it to. When it
-// passes, the period is closed at that time and the day is marked as a missed
-// check-out.
+// early-departure leave, or the time the employee extended it to. The period
+// stays open for a few minutes after it, so someone leaving on time can still
+// check out; after that it is closed at that time and the day is marked as a
+// missed check-out.
 
 const HOUR = 3600e3;
 const MINUTE = 60e3;
+const AUTO_CLOSE_GRACE_MINUTES = 5;
 // Overtime requests start at half an hour (see models/Overtime.js)
 const MIN_AUTO_OVERTIME_MINUTES = 30;
 const MAX_EXTEND_HOURS = 4;
@@ -163,10 +165,12 @@ const reapplySchedule = async (user, from, to) => {
   return changed;
 };
 
-// Closes every period whose closing time has passed. Runs before attendance
-// is read or changed, so nobody sees (or extends) a period that has ended.
+// Closes every period whose closing time (plus the grace minutes) has passed.
+// Runs before attendance is read or changed, so nobody sees (or extends) a
+// period that has ended. The recorded time is the closing time itself: the
+// grace is a chance to check out, not extra paid minutes.
 const closeOverduePeriods = async () => {
-  const due = await Attendance.find({ autoCloseAt: { $lte: new Date() } });
+  const due = await Attendance.find({ autoCloseAt: { $lte: new Date(Date.now() - AUTO_CLOSE_GRACE_MINUTES * MINUTE) } });
   for (const record of due) {
     record.adoptLegacySession();
     const at = record.autoCloseAt;
@@ -210,6 +214,7 @@ const requestExtendedOvertime = async (record) => {
 
 module.exports = {
   MAX_EXTEND_HOURS,
+  AUTO_CLOSE_GRACE_MINUTES,
   loadLeaves,
   recalcDay,
   autoCloseTime,

@@ -976,9 +976,32 @@ tbody tr:hover td {
   border-radius: var(--radius);
 }
 .camera-box video,
-.camera-box img {
+.camera-box img,
+.camera-box canvas {
   display: block;
   width: 100%;
+}
+/* The canvas is the preview; the video only feeds it (see CameraCapture) */
+.camera-live {
+  position: relative;
+  min-height: 200px;
+}
+.camera-live video {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  opacity: 0;
+}
+.camera-live canvas {
+  position: relative;
+}
+.camera-live.show-video video {
+  position: static;
+  height: auto;
+  opacity: 1;
+}
+.camera-live.show-video canvas {
+  display: none;
 }
 .camera-actions {
   display: flex;
@@ -1142,6 +1165,154 @@ tbody tr:hover td {
   width: 100%;
   border: var(--border);
   border-radius: var(--radius-sm);
+}
+
+/* The daily message popup shown after signing in */
+.modal-overlay.daily-overlay {
+  z-index: 60;
+  align-items: center;
+  padding: var(--space-4);
+  overflow-y: auto;
+  background: rgba(43, 33, 24, 0.7);
+}
+.daily-message {
+  width: 100%;
+  max-width: 460px;
+  max-height: calc(100vh - 2 * var(--space-4));
+  overflow-y: auto;
+  padding: var(--space-5);
+  background:
+    radial-gradient(var(--mustard-soft) 1px, transparent 1px) 0 0 / 14px 14px,
+    var(--surface);
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: -8px 8px 0 var(--mustard), -8px 8px 0 2px var(--ink);
+  animation: daily-in 0.28s ease-out;
+}
+.daily-message::before {
+  content: '';
+  display: block;
+  height: var(--stripe-h);
+  margin: calc(var(--space-5) * -1) calc(var(--space-5) * -1) var(--space-5);
+  background: var(--stripes);
+}
+@keyframes daily-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .daily-message {
+    animation: none;
+  }
+}
+.daily-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.daily-head img {
+  flex: none;
+  padding: 4px;
+  background: var(--surface);
+  border: var(--border);
+  border-radius: 50%;
+}
+.daily-kicker {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--blue-dark);
+}
+.daily-count {
+  margin-inline-start: auto;
+  padding: 2px var(--space-3);
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--mustard);
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+}
+.daily-message h2 {
+  margin: 0 0 var(--space-3);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.daily-message p {
+  margin: 0 0 var(--space-5);
+  font-size: 16px;
+  line-height: 1.9;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.daily-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 2px dashed var(--line);
+}
+.daily-foot small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Admin messages page */
+.message-excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.people-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.people-tools input {
+  flex: 1 1 160px;
+  width: auto;
+}
+.people-list {
+  max-height: 240px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--surface);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.people-list li + li {
+  border-top: 1.5px dashed var(--line);
+}
+.people-list label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.people-list small {
+  margin-inline-start: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.people-empty {
+  padding: var(--space-3);
+  font-size: 14px;
+  text-align: center;
+  color: var(--muted);
 }
 
 /* ---------- Auth pages ---------- */

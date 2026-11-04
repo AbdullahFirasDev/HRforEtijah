@@ -62,6 +62,9 @@ export default function EmployeeDashboard() {
   const week = today?.week ? weekLines(today.week) : [];
   const closesAt = isWorking && attendance?.autoCloseAt ? new Date(attendance.autoCloseAt) : null;
   const minutesLeft = closesAt ? Math.max(0, Math.ceil((closesAt.getTime() - now) / 60000)) : null;
+  // The period stays open a few minutes after its end so leaving on time is possible
+  const lastCall = closesAt ? new Date(closesAt.getTime() + (today?.closeGraceMinutes || 0) * 60000) : null;
+  const graceLeft = lastCall ? Math.max(0, Math.ceil((lastCall.getTime() - now) / 60000)) : null;
   const missed = (today?.recentMissed || []).filter((m) => !dismissed.includes(String(m.id)));
 
   useEffect(() => {
@@ -268,11 +271,16 @@ export default function EmployeeDashboard() {
               </>
             ) : (
               <>
-                يُغلق دوامك تلقائياً الساعة <strong>{formatClockTime(closesAt)}</strong> إن لم تسجّل انصرافك.
+                ينتهي دوامك الساعة <strong>{formatClockTime(closesAt)}</strong>. إن لم تسجّل انصرافك حتى{' '}
+                <strong>{formatClockTime(lastCall)}</strong> يُغلق تلقائياً.
               </>
             )}{' '}
             <span className="closing-left">
-              {minutesLeft > 0 ? `متبقٍ ${formatMinutes(minutesLeft)}` : 'انتهى الوقت، ويُغلق الآن'}
+              {minutesLeft > 0
+                ? `متبقٍ ${formatMinutes(minutesLeft)}`
+                : graceLeft > 0
+                  ? `انتهى الوقت، سجّل انصرافك خلال ${formatMinutes(graceLeft)}`
+                  : 'انتهى الوقت، ويُغلق الآن'}
             </span>
           </p>
           {!extending && (

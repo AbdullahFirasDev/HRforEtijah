@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const Overtime = require('../models/Overtime');
+const TimeLeave = require('../models/TimeLeave');
+const Message = require('../models/Message');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { createUserAccount } = require('../utils/userAccount');
@@ -130,8 +132,11 @@ const deleteUser = asyncHandler(async (req, res) => {
 
   const overtime = await Overtime.deleteMany({ user: user._id });
   const attendance = await Attendance.deleteMany({ user: user._id });
+  await TimeLeave.deleteMany({ user: user._id });
+  await Message.updateMany({}, { $pull: { recipients: user._id, reads: { user: user._id } } });
   // Records this user reviewed stay, without pointing at a deleted account
   await Overtime.updateMany({ reviewedBy: user._id }, { $set: { reviewedBy: null } });
+  await TimeLeave.updateMany({ reviewedBy: user._id }, { $set: { reviewedBy: null } });
   await Attendance.updateMany({ 'validation.verifiedBy': user._id }, { $set: { 'validation.verifiedBy': null } });
   await user.deleteOne();
 

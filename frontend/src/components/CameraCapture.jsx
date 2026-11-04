@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import Alert from './Alert';
 
+// If the camera gives no frame to draw by then, show the video element itself
+const FIRST_FRAME_TIMEOUT_MS = 3000;
+
 // Captures a live selfie straight from the device camera using
 // getUserMedia + a canvas snapshot. There is deliberately no <input type="file">
 // anywhere in this component, satisfying the "no file upload" requirement.
+// Some phone browsers mirror the front camera in a <video> element but not in
+// what is drawn from it, so the preview is that same canvas: what the employee
+// sees is exactly the photo that gets saved.
 export default function CameraCapture({ onCapture, capturedImage, onRetake }) {
   const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const frameRef = useRef(null);
+  const fallbackTimerRef = useRef(null);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
 
   useEffect(() => {
     if (capturedImage) return; // don't open camera if we already have a shot
@@ -17,8 +27,24 @@ export default function CameraCapture({ onCapture, capturedImage, onRetake }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [capturedImage]);
 
+  const drawFrame = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (video && canvas && video.readyState >= 2 && video.videoWidth) {
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      clearTimeout(fallbackTimerRef.current);
+      setReady(true);
+    }
+    frameRef.current = requestAnimationFrame(drawFrame);
+  };
+
   const startCamera = async () => {
     setError('');
+    setShowVideo(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: 480, height: 360 },
@@ -27,7 +53,12 @@ export default function CameraCapture({ onCapture, capturedImage, onRetake }) {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        setReady(true);
+        videoRef.current.play().catch(() => {});
+        frameRef.current = requestAnimationFrame(drawFrame);
+        fallbackTimerRef.current = setTimeout(() => {
+          setShowVideo(true);
+          setReady(true);
+        }, FIRST_FRAME_TIMEOUT_MS);
       }
     } catch (err) {
       setError('تعذر الوصول إلى الكاميرا. اسمح للمتصفح باستخدام الكاميرا ثم اضغط "إعادة المحاولة".');
@@ -35,6 +66,8 @@ export default function CameraCapture({ onCapture, capturedImage, onRetake }) {
   };
 
   const stopCamera = () => {
+    cancelAnimationFrame(frameRef.current);
+    clearTimeout(fallbackTimerRef.current);
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     setReady(false);
@@ -42,11 +75,13 @@ export default function CameraCapture({ onCapture, capturedImage, onRetake }) {
 
   const handleCapture = () => {
     const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 480;
-    canvas.height = video.videoHeight || 360;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const canvas = canvasRef.current;
+    // The preview already holds the latest frame; the video only as a fallback
+    if (showVideo) {
+      canvas.width = video.videoWidth || 480;
+      canvas.height = video.videoHeight || 360;
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    }
     const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
     stopCamera();
     onCapture(dataUrl);
@@ -71,8 +106,9 @@ export default function CameraCapture({ onCapture, capturedImage, onRetake }) {
 
   return (
     <div>
-      <div className="camera-box">
+      <div className={`camera-box camera-live${showVideo ? ' show-video' : ''}`}>
         <video ref={videoRef} autoPlay playsInline muted />
+        <canvas ref={canvasRef} role="img" aria-label="معاينة الكاميرا" />
       </div>
       {error && (
         <div style={{ marginTop: 'var(--space-3)' }}>

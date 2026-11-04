@@ -135,6 +135,13 @@ export const IconClose = (p) => (
   </Svg>
 );
 
+export const IconMail = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M3.5 7l8.5 6 8.5-6" />
+  </Svg>
+);
+
 export const IconBell = (p) => (
   <Svg {...p}>
     <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9" />

@@ -82,8 +82,8 @@ const attendanceSchema = new mongoose.Schema(
     earlyLeaveMinutes: { type: Number, default: 0 },
     overtimeMinutes: { type: Number, default: 0 }, // worked beyond the day's target
     leaveMinutes: { type: Number, default: 0 }, // excused by approved time leaves
-    // When the open period closes by itself if nobody checks out (see
-    // utils/attendanceDay.js); null once closed
+    // When the open period ends if nobody checks out: it is closed at this
+    // time, a few minutes later (see utils/attendanceDay.js); null once closed
     autoCloseAt: { type: Date, default: null },
     missedPunchOut: { type: Boolean, default: false },
     edits: { type: [editSchema], default: undefined },

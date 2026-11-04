@@ -24,6 +24,7 @@ import GeofenceSettings from './pages/GeofenceSettings';
 import Timesheets from './pages/Timesheets';
 import TimeLeaves from './pages/TimeLeaves';
 import TimeLeaveApprovals from './pages/TimeLeaveApprovals';
+import AdminMessages from './pages/AdminMessages';
 
 function withLayout(Component) {
   return (
@@ -96,6 +97,7 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/admin/overtime" element={withLayout(OvertimeApprovals)} />
         <Route path="/admin/validation" element={withLayout(AttendanceValidation)} />
         <Route path="/admin/reports" element={withLayout(Reports)} />
+        <Route path="/admin/messages" element={withLayout(AdminMessages)} />
         <Route path="/admin/geofence" element={withLayout(GeofenceSettings)} />
       </Route>
 

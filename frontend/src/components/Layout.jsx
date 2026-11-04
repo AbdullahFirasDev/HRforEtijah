@@ -5,6 +5,7 @@ import { selectCurrentUser } from '../features/auth/authSlice';
 import { roleLabel } from '../utils/labels';
 import Header from './Header';
 import InstallBanner from './InstallBanner';
+import DailyMessages from './DailyMessages';
 import {
   IconDashboard,
   IconClock,
@@ -16,6 +17,7 @@ import {
   IconMapPin,
   IconTimesheet,
   IconHourglass,
+  IconMail,
 } from './icons';
 
 const NAV_ITEMS = {
@@ -44,6 +46,7 @@ const NAV_ITEMS = {
     { to: '/admin/overtime', label: 'اعتماد العمل الإضافي', icon: IconClockPlus },
     { to: '/admin/validation', label: 'التحقق من الصور', icon: IconShieldCheck },
     { to: '/admin/reports', label: 'التقارير', icon: IconChart },
+    { to: '/admin/messages', label: 'الرسائل', icon: IconMail },
     { to: '/admin/geofence', label: 'النطاق الجغرافي', icon: IconMapPin },
   ],
 };
@@ -87,6 +90,7 @@ export default function Layout({ children }) {
           {children}
         </main>
       </div>
+      <DailyMessages />
     </div>
   );
 }
