@@ -56,6 +56,7 @@ const getDailyReport = asyncHandler(async (req, res) => {
       punchOutTime: r.punchOut?.time || null,
       punchInSelfie: sessions[0]?.punchIn?.selfie || null,
       punchOutSelfie: sessions[sessions.length - 1]?.punchOut?.selfie || null,
+      faceVerified: sessions.some((s) => s.punchIn?.faceDistance != null),
       location: r.punchIn?.location || null,
       totalHours: r.totalHours,
       status: r.status,

@@ -37,7 +37,7 @@ export default function AttendanceHistory() {
     },
     {
       key: 'selfies',
-      label: 'الصور',
+      label: 'التحقق من الهوية',
       value: () => '',
       render: (r) => <SessionSelfies record={r} onOpen={setModalSrc} />,
     },

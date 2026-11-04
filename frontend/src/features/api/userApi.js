@@ -22,6 +22,10 @@ export const userApi = apiSlice.injectEndpoints({
       query: (id) => ({ url: `/users/${id}/reset-device`, method: 'PATCH' }),
       invalidatesTags: ['User'],
     }),
+    resetFace: builder.mutation({
+      query: (id) => ({ url: `/users/${id}/reset-face`, method: 'PATCH' }),
+      invalidatesTags: ['User'],
+    }),
     changePassword: builder.mutation({
       query: ({ id, password }) => ({ url: `/users/${id}/password`, method: 'PATCH', body: { password } }),
       invalidatesTags: ['User'],
@@ -43,6 +47,7 @@ export const {
   useGetMyTeamQuery,
   useUpdateUserMutation,
   useResetDeviceMutation,
+  useResetFaceMutation,
   useChangePasswordMutation,
   useDeleteUserMutation,
   useGetDailyReportQuery,

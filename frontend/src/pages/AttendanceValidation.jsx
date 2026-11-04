@@ -49,7 +49,7 @@ export default function AttendanceValidation() {
     { key: 'date', label: 'التاريخ', value: (r) => r.date },
     {
       key: 'selfies',
-      label: 'الصور (حضور / انصراف)',
+      label: 'التحقق من الهوية',
       value: () => '',
       render: (r) => <SessionSelfies record={r} onOpen={setModalSrc} />,
     },
@@ -99,7 +99,7 @@ export default function AttendanceValidation() {
 
   return (
     <div>
-      <PageHeader title="التحقق من صور الحضور" subtitle="قارن صور الحضور والانصراف والموقع، ثم اعتمد السجل بأنه صحيح أو غير صحيح." />
+      <PageHeader title="التحقق من الحضور" subtitle="السجلات الجديدة يُتحقق منها تلقائياً بمطابقة الوجه. راجع الموقع، أو صور السجلات القديمة، واعتمد السجل أو ارفضه." />
       <Alert type="error" onClose={() => setError('')}>
         {error}
       </Alert>
@@ -119,7 +119,7 @@ export default function AttendanceValidation() {
         <Loading />
       ) : (
         <DataTable
-          exportTitle="التحقق من صور الحضور"
+          exportTitle="التحقق من الحضور"
           columns={columns}
           rows={data?.records || []}
           emptyLabel="لا توجد سجلات للتحقق."

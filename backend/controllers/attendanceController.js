@@ -19,6 +19,7 @@ const {
 } = require('../utils/attendanceDay');
 const { applyPeriods, editView } = require('../utils/attendanceEdit');
 const { departureLeave } = require('../utils/timeLeave');
+const { encryptPrint, isFaceTaken, verifyFace } = require('../utils/faceData');
 
 const todayStr = todayLocal;
 const HOUR = 3600e3;
@@ -28,13 +29,13 @@ const HOUR = 3600e3;
 // @route POST /api/attendance/punch-in
 // @access Private (employee)
 const punchIn = asyncHandler(async (req, res) => {
-  const { selfie, lat, lng, accuracy } = req.body;
+  const { face, lat, lng, accuracy } = req.body;
 
-  if (!selfie) throw new ApiError(400, 'يلزم التقاط صورة مباشرة لتسجيل الحضور');
   if (lat === undefined || lng === undefined) {
     throw new ApiError(400, 'يلزم تحديد موقعك لتسجيل الحضور');
   }
   const location = checkPunchLocation(await loadGeofence(), { lat, lng, accuracy }, 'لتسجيل الحضور');
+  const faceDistance = await verifyFace(req.user._id, face);
 
   const date = todayStr();
   const now = new Date();
@@ -65,9 +66,11 @@ const punchIn = asyncHandler(async (req, res) => {
   } else {
     record.schedule = dayPlan(req.user, date);
     record.punchIn = { time: now, location };
+    // A matched face needs no manual review of a photo
+    record.validation = { status: 'Valid', remarks: 'تحقق تلقائي من الوجه', verifiedAt: now };
   }
 
-  sessions.push({ punchIn: { time: now, selfie, location, leave: returning?._id } });
+  sessions.push({ punchIn: { time: now, faceDistance, location, leave: returning?._id } });
   if (returning) returning.returnedAt = now;
   recalcDay(record, leaves);
   record.autoCloseAt = autoCloseTime(record, now, leaves);
@@ -81,13 +84,13 @@ const punchIn = asyncHandler(async (req, res) => {
 // @route POST /api/attendance/punch-out
 // @access Private (employee)
 const punchOut = asyncHandler(async (req, res) => {
-  const { selfie, lat, lng, accuracy } = req.body;
+  const { face, lat, lng, accuracy } = req.body;
 
-  if (!selfie) throw new ApiError(400, 'يلزم التقاط صورة مباشرة لتسجيل الانصراف');
   if (lat === undefined || lng === undefined) {
     throw new ApiError(400, 'يلزم تحديد موقعك لتسجيل الانصراف');
   }
   const location = checkPunchLocation(await loadGeofence(), { lat, lng, accuracy }, 'لتسجيل الانصراف');
+  const faceDistance = await verifyFace(req.user._id, face);
 
   const date = todayStr();
   const record = await Attendance.findOne({ user: req.user._id, date });
@@ -118,7 +121,7 @@ const punchOut = asyncHandler(async (req, res) => {
   const leaves = await loadLeaves(record);
   const leave = departureLeave(leaves, date, req.body.leaveId, now);
   if (leave) leave.departedAt = now;
-  closeOpenSession(record, now, { selfie, location, leave: leave?._id }, leaves);
+  closeOpenSession(record, now, { faceDistance, location, leave: leave?._id }, leaves);
   const overtime = await requestExtendedOvertime(record);
   try {
     await record.save();
@@ -210,6 +213,7 @@ const getTodayStatus = asyncHandler(async (req, res) => {
       targetHours: targetHours(plan),
       dayOff: !!plan.dayOff,
       allowMultiplePunches: !!req.user.allowMultiplePunches,
+      faceEnrolled: !!req.user.faceEnrolledAt,
       maxSessions: allowedSessions(req.user, plan),
       closeGraceMinutes: AUTO_CLOSE_GRACE_MINUTES,
       week: weekPlan(req.user),
@@ -277,7 +281,7 @@ const getAllAttendance = asyncHandler(async (req, res) => {
   res.json({ success: true, count: records.length, total, page: Number(page), records });
 });
 
-// @desc  Manager/Admin validates an attendance record (verify selfie authenticity)
+// @desc  Manager/Admin validates an attendance record (overrides the automatic face check)
 // @route PATCH /api/attendance/:id/validate
 // @access Private (manager, admin)
 const validateAttendance = asyncHandler(async (req, res) => {
@@ -374,7 +378,28 @@ const addManualAttendance = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, attendance: editView(record) });
 });
 
+// @desc  The employee registers their face print (once; an admin can reset it)
+// @route POST /api/attendance/face
+// @access Private
+const enrollFace = asyncHandler(async (req, res) => {
+  const { face } = req.body;
+  if (req.user.faceEnrolledAt) {
+    throw new ApiError(409, 'بصمة وجهك مسجّلة مسبقاً. لتغييرها اطلب من مسؤول النظام إعادة تعيينها.');
+  }
+  if (await isFaceTaken(req.user._id, face)) {
+    throw new ApiError(409, 'هذا الوجه مسجّل لحساب آخر. راجع مسؤول النظام.');
+  }
+  const claimed = await User.updateOne(
+    { _id: req.user._id, faceEnrolledAt: null },
+    { $set: { faceDescriptor: encryptPrint(face), faceEnrolledAt: new Date() } }
+  );
+  if (!claimed.modifiedCount) throw new ApiError(409, 'بصمة وجهك مسجّلة مسبقاً.');
+  logger.info(`${req.user.email} registered a face print`);
+  res.status(201).json({ success: true });
+});
+
 module.exports = {
+  enrollFace,
   getAttendanceRecord,
   editAttendancePeriods,
   addManualAttendance,

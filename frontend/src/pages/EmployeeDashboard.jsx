@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import CameraCapture from '../components/CameraCapture';
+import FaceCapture from '../components/FaceCapture';
 import StatusBadge from '../components/StatusBadge';
 import AttendanceNotes from '../components/AttendanceNotes';
 import ExtendTimePanel from '../components/ExtendTimePanel';
@@ -12,6 +12,7 @@ import { openSessionOf, periodHours, sessionsOf } from '../utils/attendance';
 import { shiftsText, weekLines } from '../utils/workSchedule';
 import { dueDeparture, leaveTimeText, leaveTypeLabel, leaveUseText, pendingReturn } from '../utils/timeLeave';
 import {
+  useEnrollFaceMutation,
   useGetTodayStatusQuery,
   usePunchInMutation,
   usePunchOutMutation,
@@ -36,7 +37,10 @@ export default function EmployeeDashboard() {
   const [punchOut, { isLoading: punchingOut }] = usePunchOutMutation();
   const { fetchLocation } = useGeolocation();
 
-  const [selfie, setSelfie] = useState(null);
+  const [enrollFace, { isLoading: enrolling }] = useEnrollFaceMutation();
+  const [enrollingFace, setEnrollingFace] = useState(false);
+  // Which punch the face check on screen is for: 'in', 'out' or none
+  const [scanning, setScanning] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -83,22 +87,36 @@ export default function EmployeeDashboard() {
     }
   };
 
-  const handleAction = async (type) => {
+  const startScan = (type) => {
+    setError('');
+    setSuccess('');
+    setScanning(type);
+  };
+
+  const handleEnroll = async (print) => {
+    setEnrollingFace(false);
+    setError('');
+    try {
+      await enrollFace({ face: print, consent: true }).unwrap();
+      setSuccess('تم تسجيل بصمة وجهك. ستتحقق بها عند كل حضور وانصراف.');
+      refetch();
+    } catch (err) {
+      setError(err?.data?.message || 'تعذر تسجيل بصمة الوجه. حاول مرة أخرى.');
+    }
+  };
+
+  const handleAction = async (type, print) => {
     // Guard against double-clicks: geolocation lookup below can take seconds,
     // and punchingIn/punchingOut only flips once the mutation actually fires,
     // so without this a second click before that point fires a duplicate request.
     if (submitting) return;
+    setScanning(null);
     setSubmitting(true);
     setError('');
     setSuccess('');
-    if (!selfie) {
-      setError('يرجى التقاط صورة مباشرة أولاً.');
-      setSubmitting(false);
-      return;
-    }
     try {
       const loc = await fetchLocation();
-      const payload = { selfie, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy };
+      const payload = { face: print, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy };
       if (type === 'in') {
         const res = await punchIn(payload).unwrap();
         setSuccess(
@@ -125,7 +143,6 @@ export default function EmployeeDashboard() {
           );
         }
       }
-      setSelfie(null);
       setExtending(false);
       refetch();
     } catch (err) {
@@ -140,14 +157,14 @@ export default function EmployeeDashboard() {
 
   const cardTitle = isWorking
     ? dueLeave
-      ? 'التقط صورة لتأكيد خروجك للزمنية'
-      : 'التقط صورة لتسجيل الانصراف'
+      ? 'تأكيد خروجك للزمنية'
+      : 'تسجيل الانصراف'
     : returnLeave
-      ? 'التقط صورة لتأكيد عودتك من الزمنية'
+      ? 'تأكيد عودتك من الزمنية'
       : canPunchIn
       ? nextPeriod > 1
-        ? `التقط صورة لبدء الفترة ${nextPeriod}`
-        : 'التقط صورة لتسجيل الحضور'
+        ? `بدء الفترة ${nextPeriod}`
+        : 'تسجيل الحضور'
       : 'اكتمل حضورك لهذا اليوم';
 
   return (
@@ -204,7 +221,7 @@ export default function EmployeeDashboard() {
           </span>
           {attendance.validation?.status && attendance.validation.status !== 'Pending' && (
             <span>
-              التحقق من الصورة: <StatusBadge status={attendance.validation.status} />
+              التحقق من الهوية: <StatusBadge status={attendance.validation.status} />
             </span>
           )}
           <AttendanceNotes record={attendance} empty={null} />
@@ -255,7 +272,7 @@ export default function EmployeeDashboard() {
           </ul>
           {returnLeave && (
             <p className="form-note">
-              أنت في زمنية حتى {formatClock(returnLeave.to)}. عند عودتك التقط صورة واضغط «تأكيد العودة من الزمنية».
+              أنت في زمنية حتى {formatClock(returnLeave.to)}. عند عودتك اضغط «تأكيد العودة من الزمنية» وتحقق من وجهك.
             </p>
           )}
         </div>
@@ -305,16 +322,42 @@ export default function EmployeeDashboard() {
       <div className="card card-narrow">
         <h3 className="card-title">{cardTitle}</h3>
 
-        {isWorking || canPunchIn ? (
+        {!today?.faceEnrolled ? (
           <>
-            <CameraCapture capturedImage={selfie} onCapture={setSelfie} onRetake={() => setSelfie(null)} />
-            <div style={{ marginTop: 'var(--space-4)' }}>
+            <p className="manage-text">
+              تسجيل الحضور والانصراف يتم بالتحقق من الوجه. سجّل بصمة وجهك مرة واحدة قبل البدء.
+            </p>
+            <Alert type="info" title="ماذا يُحفظ؟">
+              تُحوَّل ملامح وجهك على جهازك إلى بصمة رقمية تُحفظ مشفّرة، وتُستخدم فقط للتأكد من هويتك عند الحضور والانصراف. لا تُحفظ
+              أي صورة لوجهك، ويستطيع مسؤول النظام حذف البصمة في أي وقت.
+            </Alert>
+            <Alert type="error">{error}</Alert>
+            {enrollingFace ? (
+              <FaceCapture purpose="enroll" onCapture={handleEnroll} onCancel={() => setEnrollingFace(false)} />
+            ) : (
+              <button
+                className="btn btn-block"
+                disabled={enrolling}
+                onClick={() => {
+                  setError('');
+                  setEnrollingFace(true);
+                }}
+              >
+                {enrolling ? 'جارٍ حفظ بصمة الوجه...' : 'أوافق، سجّل بصمة وجهي'}
+              </button>
+            )}
+          </>
+        ) : scanning ? (
+          <FaceCapture onCapture={(print) => handleAction(scanning, print)} onCancel={() => setScanning(null)} />
+        ) : isWorking || canPunchIn ? (
+          <>
+            <div>
               <Alert type="error">{error}</Alert>
               {canPunchIn && (
                 <button
                   className="btn success btn-block"
                   disabled={submitting || punchingIn}
-                  onClick={() => handleAction('in')}
+                  onClick={() => startScan('in')}
                 >
                   {submitting || punchingIn
                     ? 'جارٍ تسجيل الحضور...'
@@ -329,7 +372,7 @@ export default function EmployeeDashboard() {
                 <button
                   className="btn danger btn-block"
                   disabled={submitting || punchingOut}
-                  onClick={() => handleAction('out')}
+                  onClick={() => startScan('out')}
                 >
                   {submitting || punchingOut
                     ? 'جارٍ تسجيل الانصراف...'
@@ -339,7 +382,9 @@ export default function EmployeeDashboard() {
                 </button>
               )}
             </div>
-            <p className="form-note">سيُحدَّد موقعك تلقائياً عند تسجيل الحضور أو الانصراف، لذا اسمح للمتصفح بالوصول إلى الموقع.</p>
+            <p className="form-note">
+              عند الضغط يُطلب منك التحقق من وجهك ويُحدَّد موقعك، لذا اسمح للمتصفح بالوصول إلى الكاميرا والموقع.
+            </p>
           </>
         ) : (
           <p className="empty-state">

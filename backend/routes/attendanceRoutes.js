@@ -13,8 +13,10 @@ const {
   getAttendanceRecord,
   editAttendancePeriods,
   addManualAttendance,
+  enrollFace,
 } = require('../controllers/attendanceController');
 const { periodRules } = require('../utils/attendanceEdit');
+const { faceRule } = require('../utils/faceData');
 const { protect, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const closeOverdue = require('../middleware/closeOverdue');
@@ -25,13 +27,19 @@ const router = express.Router();
 router.use(protect, closeOverdue);
 
 const punchValidators = [
-  body('selfie').notEmpty().withMessage('صورة السيلفي مطلوبة'),
+  faceRule,
   body('lat', 'إحداثيات الموقع غير صحيحة').isFloat({ min: -90, max: 90 }).toFloat(),
   body('lng', 'إحداثيات الموقع غير صحيحة').isFloat({ min: -180, max: 180 }).toFloat(),
   body('accuracy', 'دقة الموقع غير صحيحة').optional({ values: 'null' }).isFloat({ min: 0 }).toFloat(),
   body('leaveId', 'رقم الزمنية غير صحيح').optional({ values: 'null' }).isMongoId(),
 ];
 
+router.post(
+  '/face',
+  [faceRule, body('consent', 'يلزم الموافقة على تسجيل بصمة الوجه').custom((value) => value === true)],
+  validate,
+  enrollFace
+);
 router.post('/punch-in', punchValidators, validate, punchIn);
 router.post('/punch-out', punchValidators, validate, punchOut);
 router.post(

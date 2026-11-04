@@ -13,7 +13,7 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const MAX_SHIFTS_PER_DAY = 3;
-// Every check-in/out stores two selfies, so the day's record stays bounded
+// Keeps one day's record small; older records hold photos as well
 const MAX_SESSIONS_PER_DAY = 6;
 
 const toMinutes = (hhmm) => {

@@ -31,6 +31,11 @@ export const attendanceApi = apiSlice.injectEndpoints({
       query: (ids) => ({ url: '/attendance/delete', method: 'POST', body: { ids } }),
       invalidatesTags: ['Attendance', 'Overtime', 'Report'],
     }),
+    // Registers the employee's face print, once
+    enrollFace: builder.mutation({
+      query: (body) => ({ url: '/attendance/face', method: 'POST', body }),
+      invalidatesTags: ['Attendance'],
+    }),
     // Keep working past the end of the open period (1–4 hours at a time)
     extendSession: builder.mutation({
       query: (body) => ({ url: '/attendance/extend', method: 'POST', body }),
@@ -68,6 +73,7 @@ export const {
   useValidateAttendanceMutation,
   useDeleteAttendanceMutation,
   useExtendSessionMutation,
+  useEnrollFaceMutation,
   useGetAttendanceRecordQuery,
   useEditAttendancePeriodsMutation,
   useAddManualAttendanceMutation,

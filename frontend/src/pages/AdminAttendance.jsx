@@ -72,7 +72,7 @@ export default function AdminAttendance() {
     },
     {
       key: 'selfie',
-      label: 'الصورة',
+      label: 'التحقق من الهوية',
       value: () => '',
       render: (r) => <SessionSelfies record={r} onOpen={setModalSrc} firstOnly />,
     },

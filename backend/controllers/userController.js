@@ -76,6 +76,19 @@ const updateUser = asyncHandler(async (req, res) => {
   res.json({ success: true, user: user.toSafeObject(), reapplied });
 });
 
+// @desc  Admin clears a user's face print; they register it again at their next check-in
+// @route PATCH /api/users/:id/reset-face
+// @access Private (admin)
+const resetFace = asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { $set: { faceDescriptor: null, faceEnrolledAt: null } },
+    { new: true }
+  );
+  if (!user) throw new ApiError(404, 'المستخدم غير موجود');
+  res.json({ success: true, user: user.toSafeObject() });
+});
+
 // @desc  Admin frees a user's registered device (new phone, cleared browser);
 //        their next sign-in registers the device they use then
 // @route PATCH /api/users/:id/reset-device
@@ -154,6 +167,7 @@ module.exports = {
   getMyTeam,
   updateUser,
   resetDevice,
+  resetFace,
   changePassword,
   deleteUser,
 };

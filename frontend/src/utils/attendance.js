@@ -30,6 +30,9 @@ export const selfiesOf = (record) => {
   });
 };
 
+// Punches confirmed by face match keep no photo
+export const faceVerifiedOf = (record) => sessionsOf(record).some((s) => s.punchIn?.faceDistance != null);
+
 // Badges for anything unusual about the day. Works on attendance records and
 // on report rows (which carry sessionsCount and dayOff instead).
 export const attendanceNotes = (r) => {

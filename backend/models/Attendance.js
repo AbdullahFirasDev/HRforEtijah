@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const punchSchema = new mongoose.Schema(
   {
     time: { type: Date },
-    selfie: { type: String }, // base64 data URL captured from live camera
+    selfie: { type: String }, // photo on records from before face verification
+    // How close the face print was to the employee's; no image is kept
+    faceDistance: { type: Number },
     location: {
       lat: { type: Number },
       lng: { type: Number },

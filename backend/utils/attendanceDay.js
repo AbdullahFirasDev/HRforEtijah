@@ -123,12 +123,12 @@ const autoCloseTime = (record, start, leaves = []) => {
   return new Date(Math.min(at.getTime(), endOfLocalDay(record.date).getTime()));
 };
 
-// Closes the open period at `at`. Without a selfie it is an automatic close:
-// the employee never checked out.
-const closeOpenSession = (record, at, { selfie, location, leave } = {}, leaves = []) => {
+// Closes the open period at `at`. Without a verified face it is an automatic
+// close: the employee never checked out.
+const closeOpenSession = (record, at, { faceDistance, location, leave } = {}, leaves = []) => {
   const open = record.sessions[record.sessions.length - 1];
-  const auto = !selfie;
-  open.punchOut = auto ? { time: at, auto: true } : { time: at, selfie, location, leave };
+  const auto = faceDistance === undefined;
+  open.punchOut = auto ? { time: at, auto: true } : { time: at, faceDistance, location, leave };
   record.punchOut = auto ? { time: at, auto: true } : { time: at, location };
   record.autoCloseAt = null;
   recalcDay(record, leaves);

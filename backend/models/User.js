@@ -36,6 +36,10 @@ const userSchema = new mongoose.Schema(
     deviceIdHash: { type: String, default: null, select: false },
     deviceLabel: { type: String, default: null },
     deviceRegisteredAt: { type: Date, default: null },
+    // Encrypted face print checked at every punch (see utils/faceData.js).
+    // Registered once by the employee; an admin can reset it.
+    faceDescriptor: { type: String, default: null, select: false },
+    faceEnrolledAt: { type: Date, default: null },
     // Set when an admin changes the password; older sessions are rejected
     passwordChangedAt: { type: Date, default: null },
     // Set by an admin (see utils/schedule.js): hours for each working day.
@@ -78,6 +82,7 @@ userSchema.methods.toSafeObject = function () {
     manager: this.manager,
     isActive: this.isActive,
     device: this.deviceRegisteredAt ? { label: this.deviceLabel, registeredAt: this.deviceRegisteredAt } : null,
+    faceEnrolledAt: this.faceEnrolledAt || null,
     workSchedule: { days: weeklyHours(this) },
     weeklyOffDays: this.weeklyOffDays || [],
     allowMultiplePunches: !!this.allowMultiplePunches,

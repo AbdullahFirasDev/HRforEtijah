@@ -6,6 +6,7 @@ import {
   useDeleteUserMutation,
   useGetAllUsersQuery,
   useResetDeviceMutation,
+  useResetFaceMutation,
   useUpdateUserMutation,
 } from '../features/api/userApi';
 import Field from './Field';
@@ -30,6 +31,7 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
 
   const [changePassword, { isLoading: savingPassword }] = useChangePasswordMutation();
   const [resetDevice, { isLoading: resetting }] = useResetDeviceMutation();
+  const [resetFace, { isLoading: resettingFace }] = useResetFaceMutation();
   const [updateUser, { isLoading: updating }] = useUpdateUserMutation();
   const [deleteUser, { isLoading: deleting }] = useDeleteUserMutation();
 
@@ -213,6 +215,29 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
             </button>
           </form>
         </section>
+
+        {user.role === 'employee' && (
+          <section className="manage-section">
+            <h3>بصمة الوجه</h3>
+            {user.faceEnrolledAt ? (
+              <>
+                <p className="manage-text">مسجّلة منذ {formatDate(user.faceEnrolledAt)}. أعد تعيينها إذا تعذر التعرف عليه.</p>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  disabled={resettingFace}
+                  onClick={() =>
+                    run(() => resetFace(user.id), `حُذفت بصمة وجه ${user.name}. سيسجّلها من جديد عند تسجيل حضوره القادم.`)
+                  }
+                >
+                  إعادة تعيين بصمة الوجه
+                </button>
+              </>
+            ) : (
+              <p className="manage-text">لم تُسجَّل بعد؛ يسجّلها الموظف بنفسه عند أول تسجيل حضور.</p>
+            )}
+          </section>
+        )}
 
         <section className="manage-section">
           <h3>الجهاز المسجّل</h3>

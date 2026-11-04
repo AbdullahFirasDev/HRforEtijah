@@ -992,16 +992,56 @@ tbody tr:hover td {
   height: 100%;
   opacity: 0;
 }
+/* Flipped on screen only, so the employee sees themselves as in a mirror */
 .camera-live canvas {
   position: relative;
+  transform: scaleX(-1);
 }
-.camera-live.show-video video {
-  position: static;
-  height: auto;
-  opacity: 1;
+.face-guide {
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  left: 50%;
+  aspect-ratio: 3 / 4;
+  border: 3px dashed var(--mustard);
+  border-radius: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
-.camera-live.show-video canvas {
-  display: none;
+.face-arrow {
+  position: absolute;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--ink);
+  background: var(--mustard);
+  border: var(--border);
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+.face-arrow.is-right {
+  right: var(--space-3);
+}
+.face-arrow.is-left {
+  left: var(--space-3);
+}
+.face-step {
+  margin: var(--space-3) 0 0;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+}
+.face-hint {
+  margin: var(--space-1) 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--brick-dark);
 }
 .camera-actions {
   display: flex;

@@ -51,16 +51,20 @@ export default function Reports() {
     },
     {
       key: 'selfie',
-      label: 'الصورة',
+      label: 'التحقق من الهوية',
       value: () => '',
       render: (r) =>
-        r.punchInSelfie && (
+        r.faceVerified ? (
+          <span className="badge success">وجه مطابق</span>
+        ) : (
+          r.punchInSelfie && (
           <img
             className="selfie-thumb"
             src={r.punchInSelfie}
             alt="صورة الحضور"
             onClick={() => setModalSrc(r.punchInSelfie)}
           />
+          )
         ),
     },
   ];

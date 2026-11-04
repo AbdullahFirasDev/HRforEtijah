@@ -6,6 +6,7 @@ const {
   getMyTeam,
   updateUser,
   resetDevice,
+  resetFace,
   changePassword,
   deleteUser,
 } = require('../controllers/userController');
@@ -33,6 +34,7 @@ router.patch(
   updateUser
 );
 router.patch('/:id/reset-device', authorize('admin'), resetDevice);
+router.patch('/:id/reset-face', authorize('admin'), resetFace);
 // Passwords are changed and accounts deleted by admins only
 router.patch(
   '/:id/password',

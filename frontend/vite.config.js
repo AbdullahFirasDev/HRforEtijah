@@ -9,7 +9,7 @@ export default defineConfig({
     // app shell (HTML/JS/CSS/icons/fonts); API data is never cached, so
     // attendance always reflects the server.
     VitePWA({
-      registerType: 'prompt', // ask before reloading, so nobody loses a captured selfie
+      registerType: 'prompt', // ask before reloading, so nobody is interrupted mid check-in
       manifest: {
         id: '/',
         name: 'الاتجاه للسفر والسياحة — الحضور',
@@ -34,6 +34,12 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
+          {
+            // Face models are large and never change: download them once
+            urlPattern: ({ url }) => url.pathname.startsWith('/models/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'face-models', expiration: { maxEntries: 10 } },
+          },
           {
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',
             handler: 'StaleWhileRevalidate',

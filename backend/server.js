@@ -26,7 +26,8 @@ const app = express();
 
 app.use(helmet());
 
-// Selfie images are sent as base64 strings, so allow a larger JSON body.
+// Older cached apps may still post a selfie: accept the size so they get the
+// "update the app" message from validation instead of a bare 413.
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
