@@ -3,7 +3,6 @@ import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../features/auth/authSlice';
 import { useGetDailyReportQuery } from '../features/api/userApi';
 import StatusBadge from '../components/StatusBadge';
-import SelfieModal from '../components/SelfieModal';
 import DataTable from '../components/DataTable';
 import DateRangeFilter from '../components/DateRangeFilter';
 import PageHeader from '../components/PageHeader';
@@ -19,7 +18,6 @@ const TITLES = { employee: 'تقاريري', manager: 'تقارير الفريق
 export default function Reports() {
   const user = useSelector(selectCurrentUser);
   const [range, setRange] = useState({ from: todayStr(), to: todayStr() });
-  const [modalSrc, setModalSrc] = useState(null);
 
   const { data, isLoading } = useGetDailyReportQuery(range);
   const title = TITLES[user?.role] || 'التقارير';
@@ -44,28 +42,10 @@ export default function Reports() {
       render: (r) => <AttendanceNotes record={r} />,
     },
     {
-      key: 'validation',
+      key: 'face',
       label: 'التحقق',
-      value: (r) => statusLabel(r.validationStatus || 'Pending'),
-      render: (r) => <StatusBadge status={r.validationStatus || 'Pending'} />,
-    },
-    {
-      key: 'selfie',
-      label: 'التحقق من الهوية',
-      value: () => '',
-      render: (r) =>
-        r.faceVerified ? (
-          <span className="badge success">وجه مطابق</span>
-        ) : (
-          r.punchInSelfie && (
-          <img
-            className="selfie-thumb"
-            src={r.punchInSelfie}
-            alt="صورة الحضور"
-            onClick={() => setModalSrc(r.punchInSelfie)}
-          />
-          )
-        ),
+      value: (r) => (r.faceVerified ? 'وجه مطابق' : ''),
+      render: (r) => (r.faceVerified ? <span className="badge success">وجه مطابق</span> : '-'),
     },
   ];
 
@@ -94,7 +74,6 @@ export default function Reports() {
           rowKey={(row, i) => row.id || i}
         />
       )}
-      <SelfieModal src={modalSrc} onClose={() => setModalSrc(null)} />
     </div>
   );
 }

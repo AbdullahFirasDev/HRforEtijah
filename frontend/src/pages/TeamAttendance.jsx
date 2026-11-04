@@ -1,48 +1,12 @@
-import { useState } from 'react';
 import { useGetTeamAttendanceQuery } from '../features/api/attendanceApi';
-import StatusBadge from '../components/StatusBadge';
-import SelfieModal from '../components/SelfieModal';
-import DataTable from '../components/DataTable';
+import AttendanceDays from '../components/AttendanceDays';
 import DateRangeFilter from '../components/DateRangeFilter';
 import PageHeader from '../components/PageHeader';
 import Loading from '../components/Loading';
-import AttendanceNotes from '../components/AttendanceNotes';
-import SessionSelfies from '../components/SessionSelfies';
-import { formatHours, formatTime } from '../utils/format';
-import { statusLabel } from '../utils/labels';
-import { notesText } from '../utils/attendance';
+import useAttendanceDays from '../utils/useAttendanceDays';
 
 export default function TeamAttendance() {
-  const [range, setRange] = useState({ from: '', to: '' });
-  const { data, isLoading } = useGetTeamAttendanceQuery(range);
-  const [modalSrc, setModalSrc] = useState(null);
-
-  const columns = [
-    { key: 'employee', label: 'الموظف', value: (r) => r.user?.name },
-    { key: 'date', label: 'التاريخ', value: (r) => r.date },
-    { key: 'punchIn', label: 'وقت الحضور', value: (r) => formatTime(r.punchIn?.time) },
-    { key: 'punchOut', label: 'وقت الانصراف', value: (r) => formatTime(r.punchOut?.time) },
-    { key: 'totalHours', label: 'الساعات', value: (r) => formatHours(r.totalHours) },
-    { key: 'status', label: 'الحالة', value: (r) => statusLabel(r.status), render: (r) => <StatusBadge status={r.status} /> },
-    {
-      key: 'notes',
-      label: 'ملاحظات',
-      value: notesText,
-      render: (r) => <AttendanceNotes record={r} />,
-    },
-    {
-      key: 'validation',
-      label: 'التحقق',
-      value: (r) => statusLabel(r.validation?.status || 'Pending'),
-      render: (r) => <StatusBadge status={r.validation?.status || 'Pending'} />,
-    },
-    {
-      key: 'selfie',
-      label: 'التحقق من الهوية',
-      value: () => '',
-      render: (r) => <SessionSelfies record={r} onOpen={setModalSrc} firstOnly />,
-    },
-  ];
+  const { range, setRange, records, isLoading, hasMore, loadingMore, showMore } = useAttendanceDays(useGetTeamAttendanceQuery);
 
   return (
     <div>
@@ -59,16 +23,17 @@ export default function TeamAttendance() {
       {isLoading ? (
         <Loading />
       ) : (
-        <DataTable
+        <AttendanceDays
+          records={records}
           exportTitle="حضور الفريق"
-          columns={columns}
-          rows={data?.records || []}
+          fileName="team-attendance"
           emptyLabel="لا توجد سجلات حضور لفريقك."
           searchPlaceholder="ابحث في حضور الفريق..."
-          fileName="team-attendance"
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onShowMore={showMore}
         />
       )}
-      <SelfieModal src={modalSrc} onClose={() => setModalSrc(null)} />
     </div>
   );
 }

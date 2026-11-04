@@ -1,34 +1,25 @@
 import { useState } from 'react';
 import { useDeleteAttendanceMutation, useGetAllAttendanceQuery } from '../features/api/attendanceApi';
-import StatusBadge from '../components/StatusBadge';
-import SelfieModal from '../components/SelfieModal';
-import DataTable from '../components/DataTable';
+import AttendanceDays from '../components/AttendanceDays';
 import DateRangeFilter from '../components/DateRangeFilter';
 import PageHeader from '../components/PageHeader';
 import Loading from '../components/Loading';
 import Alert from '../components/Alert';
-import AttendanceNotes from '../components/AttendanceNotes';
-import SessionSelfies from '../components/SessionSelfies';
 import DeleteAttendanceModal from '../components/DeleteAttendanceModal';
 import EditTimesModal from '../components/EditTimesModal';
-import { formatHours, formatTime } from '../utils/format';
-import { statusLabel } from '../utils/labels';
-import { notesText } from '../utils/attendance';
+import useAttendanceDays from '../utils/useAttendanceDays';
 
 export default function AdminAttendance() {
-  const [range, setRange] = useState({ from: '', to: '' });
-  const { data, isLoading } = useGetAllAttendanceQuery(range);
+  const { range, setRange, records, isLoading, hasMore, loadingMore, showMore } = useAttendanceDays(useGetAllAttendanceQuery);
   const [deleteAttendance, { isLoading: deleting }] = useDeleteAttendanceMutation();
-  const [modalSrc, setModalSrc] = useState(null);
   const [selected, setSelected] = useState([]);
   const [toDelete, setToDelete] = useState(null);
   const [editing, setEditing] = useState(null);
   const [deleteError, setDeleteError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const rows = data?.records || [];
-  // Only rows still on screen count (the date filter may have hidden some)
-  const selectedRows = rows.filter((r) => selected.includes(String(r._id)));
+  // Only records still on screen count (the date filter may have hidden some)
+  const selectedRows = records.filter((r) => selected.includes(String(r._id)));
 
   const askDelete = () => {
     setDeleteError('');
@@ -51,36 +42,9 @@ export default function AdminAttendance() {
     }
   };
 
-  const columns = [
-    { key: 'employee', label: 'الموظف', value: (r) => r.user?.name },
-    { key: 'date', label: 'التاريخ', value: (r) => r.date },
-    { key: 'punchIn', label: 'وقت الحضور', value: (r) => formatTime(r.punchIn?.time) },
-    { key: 'punchOut', label: 'وقت الانصراف', value: (r) => formatTime(r.punchOut?.time) },
-    { key: 'totalHours', label: 'الساعات', value: (r) => formatHours(r.totalHours) },
-    { key: 'status', label: 'الحالة', value: (r) => statusLabel(r.status), render: (r) => <StatusBadge status={r.status} /> },
-    {
-      key: 'notes',
-      label: 'ملاحظات',
-      value: notesText,
-      render: (r) => <AttendanceNotes record={r} />,
-    },
-    {
-      key: 'validation',
-      label: 'التحقق',
-      value: (r) => statusLabel(r.validation?.status || 'Pending'),
-      render: (r) => <StatusBadge status={r.validation?.status || 'Pending'} />,
-    },
-    {
-      key: 'selfie',
-      label: 'التحقق من الهوية',
-      value: () => '',
-      render: (r) => <SessionSelfies record={r} onOpen={setModalSrc} firstOnly />,
-    },
-  ];
-
   return (
     <div>
-      <PageHeader title="سجل الحضور العام" subtitle="حدّد سجلاً من المربع بجانبه لتعديل أوقات حضوره وانصرافه، أو حدّد سجلاً أو أكثر لحذفها. ولإضافة يوم لم يُسجَّل فيه حضور استخدم «الزمنيات»." />
+      <PageHeader title="سجل الحضور العام" subtitle="حدّد سجلاً من المربع بجانبه لتعديل أوقات حضوره وانصرافه، أو حدّد سجلاً أو أكثر لحذفها. ولإضافة يوم لم يُسجَّل فيه حضور استخدم «الكشف الشهري»." />
       <Alert type="success" onClose={() => setSuccess('')}>
         {success}
       </Alert>
@@ -122,15 +86,17 @@ export default function AdminAttendance() {
       {isLoading ? (
         <Loading />
       ) : (
-        <DataTable
+        <AttendanceDays
+          records={records}
           exportTitle="سجل الحضور العام"
-          columns={columns}
-          rows={rows}
+          fileName="all-attendance"
           emptyLabel="لا توجد سجلات حضور."
           searchPlaceholder="ابحث في سجل الحضور..."
-          fileName="all-attendance"
           selected={selected}
           onSelectedChange={setSelected}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onShowMore={showMore}
         />
       )}
       {editing && (
@@ -155,7 +121,6 @@ export default function AdminAttendance() {
           onCancel={() => setToDelete(null)}
         />
       )}
-      <SelfieModal src={modalSrc} onClose={() => setModalSrc(null)} />
     </div>
   );
 }

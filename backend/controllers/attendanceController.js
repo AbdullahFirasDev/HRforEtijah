@@ -5,13 +5,16 @@ const logger = require('../config/logger');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { checkPunchLocation, loadGeofence } = require('../utils/geofence');
-const { todayLocal, addDays, endOfLocalDay, clockText } = require('../utils/dateUtils');
+const { todayLocal, addDays, clockText } = require('../utils/dateUtils');
 const { MAX_SESSIONS_PER_DAY, dayPlan, planShifts, weekPlan, targetHours, allowedSessions } = require('../utils/schedule');
 const TimeLeave = require('../models/TimeLeave');
 const {
   AUTO_CLOSE_GRACE_MINUTES,
+  EXTENSION_LIMIT_HOURS,
   autoCloseTime,
   closeOpenSession,
+  currentRecord,
+  extendOpenSession,
   loadLeaves,
   recalcDay,
   refreshDay,
@@ -22,7 +25,28 @@ const { departureLeave } = require('../utils/timeLeave');
 const { encryptPrint, isFaceTaken, verifyFace } = require('../utils/faceData');
 
 const todayStr = todayLocal;
-const HOUR = 3600e3;
+// A year of days is the most one screen asks for
+const MAX_DAYS = 366;
+
+// One page of records: `limit` records, or with `days` the latest whole days,
+// so a screen grouped by day never shows part of one
+const pageOfRecords = async (query, { page = 1, limit = 20, days }, userFields) => {
+  const wanted = Math.min(Number(days) || 0, MAX_DAYS);
+  if (wanted) {
+    const dates = (await Attendance.distinct('date', query)).sort().reverse();
+    const records = await Attendance.find({ ...query, date: { $in: dates.slice(0, wanted) } })
+      .populate(userFields ? { path: 'user', select: userFields } : [])
+      .sort({ date: -1, 'punchIn.time': 1 });
+    return { success: true, count: records.length, hasMore: dates.length > wanted, records };
+  }
+  const records = await Attendance.find(query)
+    .populate(userFields ? { path: 'user', select: userFields } : [])
+    .sort({ date: -1 })
+    .skip((page - 1) * limit)
+    .limit(Number(limit));
+  const total = await Attendance.countDocuments(query);
+  return { success: true, count: records.length, total, page: Number(page), records };
+};
 
 // @desc  Punch in for today (again for the next work period, or for staff
 //        allowed several periods a day)
@@ -39,7 +63,11 @@ const punchIn = asyncHandler(async (req, res) => {
 
   const date = todayStr();
   const now = new Date();
-  const record = (await Attendance.findOne({ user: req.user._id, date })) || new Attendance({ user: req.user._id, date });
+  const current = await currentRecord(req.user._id);
+  if (current && current.date !== date) {
+    throw new ApiError(409, 'حضورك مسجّل حالياً. سجّل الانصراف أولاً.');
+  }
+  const record = current || new Attendance({ user: req.user._id, date });
   record.adoptLegacySession();
   const leaves = await loadLeaves(record);
   // Coming back from an approved "step out" leave is always allowed
@@ -66,8 +94,6 @@ const punchIn = asyncHandler(async (req, res) => {
   } else {
     record.schedule = dayPlan(req.user, date);
     record.punchIn = { time: now, location };
-    // A matched face needs no manual review of a photo
-    record.validation = { status: 'Valid', remarks: 'تحقق تلقائي من الوجه', verifiedAt: now };
   }
 
   sessions.push({ punchIn: { time: now, faceDistance, location, leave: returning?._id } });
@@ -92,8 +118,7 @@ const punchOut = asyncHandler(async (req, res) => {
   const location = checkPunchLocation(await loadGeofence(), { lat, lng, accuracy }, 'لتسجيل الانصراف');
   const faceDistance = await verifyFace(req.user._id, face);
 
-  const date = todayStr();
-  const record = await Attendance.findOne({ user: req.user._id, date });
+  const record = await currentRecord(req.user._id);
   record?.adoptLegacySession();
   const open = record?.sessions[record.sessions.length - 1];
   if (!open) {
@@ -103,7 +128,8 @@ const punchOut = asyncHandler(async (req, res) => {
     const more = record.sessions.length < allowedSessions(req.user, record.schedule);
     throw new ApiError(
       409,
-      `أُغلقت فترة حضورك تلقائياً الساعة ${clockText(open.punchOut.time)} لأنك لم تسجّل الانصراف قبل نهايتها ولم تمدد الوقت. ` +
+      `أُغلقت فترة حضورك تلقائياً الساعة ${clockText(open.punchOut.time)} ` +
+        (open.extendedAt ? 'لأنك لم تسجّل الانصراف بعد تمديد الوقت. ' : 'لأنك لم تسجّل الانصراف قبل نهايتها ولم تمدد الوقت. ') +
         (more ? 'إن عدت إلى العمل فسجّل حضوراً جديداً.' : 'إن كنت ما زلت تعمل فأبلغ مديرك.')
     );
   }
@@ -119,7 +145,7 @@ const punchOut = asyncHandler(async (req, res) => {
   // Leaving for an approved time leave (chosen, or the one due right now)
   const now = new Date();
   const leaves = await loadLeaves(record);
-  const leave = departureLeave(leaves, date, req.body.leaveId, now);
+  const leave = departureLeave(leaves, record.date, req.body.leaveId, now);
   if (leave) leave.departedAt = now;
   closeOpenSession(record, now, { faceDistance, location, leave: leave?._id }, leaves);
   const overtime = await requestExtendedOvertime(record);
@@ -134,40 +160,30 @@ const punchOut = asyncHandler(async (req, res) => {
   res.json({ success: true, attendance: record, overtime, leave: leave || null });
 });
 
-// @desc  Keep working past the end of the open period: it then closes by
-//        itself only at the extended time. The extra time becomes an
-//        overtime request when the employee checks out.
+// @desc  Keep working past the end of the open period: time then counts until
+//        the employee checks out, and the extra time becomes an overtime
+//        request. Pressing it twice changes nothing.
 // @route POST /api/attendance/extend
 // @access Private (employee)
 const extendSession = asyncHandler(async (req, res) => {
-  const { hours, reason } = req.body;
-  const date = todayStr();
-  const record = await Attendance.findOne({ user: req.user._id, date });
+  const record = await currentRecord(req.user._id);
   record?.adoptLegacySession();
   const open = record?.sessions[record.sessions.length - 1];
   if (!open || open.punchOut?.time) {
     throw new ApiError(400, 'لست مسجّل حضور حالياً، فلا يوجد وقت لتمديده. سجّل حضورك أولاً.');
   }
 
-  const endOfDay = endOfLocalDay(date).getTime();
-  const from = Math.max(Date.now(), record.autoCloseAt?.getTime() || 0);
-  if (from >= endOfDay) {
-    throw new ApiError(409, 'وقتك ممدد حتى نهاية اليوم، ولا يمكن تمديده أكثر من ذلك.');
-  }
-  const until = new Date(Math.min(from + hours * HOUR, endOfDay));
-  open.extendedUntil = until;
-  if (reason?.trim()) open.extendReason = reason.trim();
-  record.autoCloseAt = until;
+  extendOpenSession(record, open);
   await record.save();
 
-  res.json({ success: true, attendance: record, extendedUntil: until });
+  res.json({ success: true, attendance: record });
 });
 
 // @desc  Get my own attendance history
 // @route GET /api/attendance/me
 // @access Private
 const getMyAttendance = asyncHandler(async (req, res) => {
-  const { from, to, page = 1, limit = 20 } = req.query;
+  const { from, to } = req.query;
   const query = { user: req.user._id };
   if (from || to) {
     query.date = {};
@@ -175,13 +191,7 @@ const getMyAttendance = asyncHandler(async (req, res) => {
     if (to) query.date.$lte = to;
   }
 
-  const records = await Attendance.find(query)
-    .sort({ date: -1 })
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
-  const total = await Attendance.countDocuments(query);
-
-  res.json({ success: true, count: records.length, total, page: Number(page), records });
+  res.json(await pageOfRecords(query, req.query));
 });
 
 // @desc  Get today's status for the logged in employee (for punch UI)
@@ -189,7 +199,7 @@ const getMyAttendance = asyncHandler(async (req, res) => {
 // @access Private
 const getTodayStatus = asyncHandler(async (req, res) => {
   const date = todayStr();
-  const record = await Attendance.findOne({ user: req.user._id, date });
+  const record = await currentRecord(req.user._id);
   // Once the day has started, its frozen plan is what lateness was measured against
   const plan = record?.schedule?.hours != null ? record.schedule : dayPlan(req.user, date);
   // Recent days the system had to close because nobody checked out
@@ -216,6 +226,7 @@ const getTodayStatus = asyncHandler(async (req, res) => {
       faceEnrolled: !!req.user.faceEnrolledAt,
       maxSessions: allowedSessions(req.user, plan),
       closeGraceMinutes: AUTO_CLOSE_GRACE_MINUTES,
+      extensionLimitHours: EXTENSION_LIMIT_HOURS,
       week: weekPlan(req.user),
       leaves,
       recentMissed: missed.map((r) => ({
@@ -231,7 +242,7 @@ const getTodayStatus = asyncHandler(async (req, res) => {
 // @route GET /api/attendance/team
 // @access Private (manager, admin)
 const getTeamAttendance = asyncHandler(async (req, res) => {
-  const { date, from, to, page = 1, limit = 20, userId } = req.query;
+  const { date, from, to, userId } = req.query;
 
   const teamMembers = await User.find({ manager: req.user._id }).select('_id');
   const teamIds = teamMembers.map((u) => u._id);
@@ -246,21 +257,14 @@ const getTeamAttendance = asyncHandler(async (req, res) => {
     if (to) query.date.$lte = to;
   }
 
-  const records = await Attendance.find(query)
-    .populate('user', 'name email role')
-    .sort({ date: -1 })
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
-  const total = await Attendance.countDocuments(query);
-
-  res.json({ success: true, count: records.length, total, page: Number(page), records });
+  res.json(await pageOfRecords(query, req.query, 'name email role'));
 });
 
 // @desc  Get all attendance records system-wide
 // @route GET /api/attendance/all
 // @access Private (admin)
 const getAllAttendance = asyncHandler(async (req, res) => {
-  const { date, userId, from, to, page = 1, limit = 20 } = req.query;
+  const { date, userId, from, to } = req.query;
 
   const query = {};
   if (userId) query.user = userId;
@@ -271,46 +275,11 @@ const getAllAttendance = asyncHandler(async (req, res) => {
     if (to) query.date.$lte = to;
   }
 
-  const records = await Attendance.find(query)
-    .populate('user', 'name email role manager')
-    .sort({ date: -1 })
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
-  const total = await Attendance.countDocuments(query);
-
-  res.json({ success: true, count: records.length, total, page: Number(page), records });
+  res.json(await pageOfRecords(query, req.query, 'name email role manager'));
 });
 
-// @desc  Manager/Admin validates an attendance record (overrides the automatic face check)
-// @route PATCH /api/attendance/:id/validate
-// @access Private (manager, admin)
-const validateAttendance = asyncHandler(async (req, res) => {
-  const { status, remarks } = req.body;
-  if (!['Valid', 'Invalid'].includes(status)) {
-    throw new ApiError(400, 'نتيجة التحقق يجب أن تكون "صحيح" أو "غير صحيح"');
-  }
-
-  const record = await Attendance.findById(req.params.id).populate('user', 'name manager');
-  if (!record) throw new ApiError(404, 'سجل الحضور غير موجود');
-
-  // A manager may only validate their own team's records
-  if (req.user.role === 'manager' && String(record.user.manager) !== String(req.user._id)) {
-    throw new ApiError(403, 'يمكنك التحقق من حضور أعضاء فريقك فقط');
-  }
-
-  record.validation = {
-    status,
-    remarks: remarks || '',
-    verifiedBy: req.user._id,
-    verifiedAt: new Date(),
-  };
-  await record.save();
-
-  res.json({ success: true, attendance: record });
-});
-
-// @desc  Admin permanently deletes attendance records, with their selfies and
-//        any overtime request filed against them
+// @desc  Admin permanently deletes attendance records, with any overtime
+//        request filed against them
 // @route POST /api/attendance/delete
 // @access Private (admin)
 const deleteAttendance = asyncHandler(async (req, res) => {
@@ -337,7 +306,6 @@ const deleteAttendance = asyncHandler(async (req, res) => {
 // @access Private (admin)
 const getAttendanceRecord = asyncHandler(async (req, res) => {
   const record = await Attendance.findById(req.params.id)
-    .select('-sessions.punchIn.selfie -sessions.punchOut.selfie -punchIn.selfie -punchOut.selfie')
     .populate('user', 'name email')
     .populate('edits.by', 'name');
   if (!record) throw new ApiError(404, 'سجل الحضور غير موجود');
@@ -410,6 +378,5 @@ module.exports = {
   getTodayStatus,
   getTeamAttendance,
   getAllAttendance,
-  validateAttendance,
   deleteAttendance,
 };

@@ -58,13 +58,6 @@ export const IconUsers = (p) => (
   </Svg>
 );
 
-export const IconShieldCheck = (p) => (
-  <Svg {...p}>
-    <path d="M12 3l7 3v5.5c0 4.6-3 8-7 9.5-4-1.5-7-4.9-7-9.5V6l7-3z" />
-    <path d="M9 12.2l2 2 4-4.4" />
-  </Svg>
-);
-
 export const IconTimesheet = (p) => (
   <Svg {...p}>
     <rect x="4" y="4" width="16" height="17" rx="2" />

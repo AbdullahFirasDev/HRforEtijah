@@ -10,9 +10,8 @@ const { addDays, localDate } = require('./dateUtils');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
-// Attendance projection without the (large) selfies
-const TIMESHEET_FIELDS =
-  '-sessions.punchIn.selfie -sessions.punchOut.selfie -punchIn.selfie -punchOut.selfie -sessions.punchIn.location -sessions.punchOut.location';
+// The sheet doesn't need where each punch happened
+const TIMESHEET_FIELDS = '-sessions.punchIn.location -sessions.punchOut.location';
 
 const sessionsOf = (r) => {
   if (r.sessions?.length) return r.sessions;
@@ -121,7 +120,7 @@ const buildTimesheet = ({ user, records, overtime, from, to, today }) => {
       earlyLeaveMinutes: r?.earlyLeaveMinutes || 0,
       overtimeMinutes: r?.overtimeMinutes || 0,
       leaveMinutes: r?.leaveMinutes || 0,
-      extended: sessions.some((s) => s.extendedUntil),
+      extended: sessions.some((s) => s.extendedAt || s.extendedUntil),
       missedPunchOut: missed,
       edited: !!r?.edits?.length,
       planOutdated,

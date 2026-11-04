@@ -967,7 +967,7 @@ tbody tr:hover td {
   }
 }
 
-/* ---------- Camera & selfies ---------- */
+/* ---------- Camera ---------- */
 .camera-box {
   max-width: 100%;
   overflow: hidden;
@@ -1055,22 +1055,6 @@ tbody tr:hover td {
   flex-wrap: wrap;
   gap: var(--space-3);
   margin-top: var(--space-3);
-}
-
-.selfie-thumb {
-  width: 48px;
-  height: 48px;
-  object-fit: cover;
-  cursor: pointer;
-  border: var(--border);
-  border-radius: var(--radius-sm);
-}
-/* Wraps after two check-in/check-out pairs on days with several periods */
-.selfie-pair {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  max-width: calc(4 * 48px + 3 * var(--space-2));
 }
 
 /* Two lines in one table cell: the value over a muted detail */
@@ -1200,13 +1184,6 @@ tbody tr:hover td {
   margin: calc(var(--space-5) * -1) calc(var(--space-5) * -1) var(--space-5);
   background: var(--stripes);
 }
-.modal-image {
-  display: block;
-  width: 100%;
-  border: var(--border);
-  border-radius: var(--radius-sm);
-}
-
 /* The daily message popup shown after signing in */
 .modal-overlay.daily-overlay {
   z-index: 60;
@@ -1900,20 +1877,186 @@ tbody tr:hover td {
   display: inline-block;
   font-weight: 800;
 }
-.extend-panel {
-  flex: 1 1 100%;
-  padding-top: var(--space-3);
-  border-top: 2px dashed var(--line);
-}
-.extend-question {
-  margin: 0 0 var(--space-2);
-  font-weight: 700;
-}
-.extend-panel .day-chips {
-  margin-bottom: var(--space-3);
-}
 .missed-line {
   display: block;
+}
+
+/* Extended time: a running timer until the employee checks out */
+.closing-banner.is-extended {
+  background: var(--mustard-soft);
+}
+.extended-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  line-height: 1.3;
+  background: var(--surface);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.extended-clock small {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.extended-clock strong {
+  font-size: 24px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.extended-note {
+  flex: 1 1 100%;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* Attendance records split by day */
+.day-toolbar .table-toolbar:last-child {
+  margin-bottom: 0;
+}
+.day-group {
+  margin-bottom: var(--space-4);
+  overflow: hidden;
+  background: var(--surface);
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.day-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--paper-deep);
+  border-bottom: var(--border);
+}
+.day-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+.day-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0 auto 0 0;
+  padding: 0;
+  font-size: 13px;
+  color: var(--muted);
+  list-style: none;
+}
+.day-counts b {
+  color: var(--ink);
+  font-weight: 800;
+}
+.day-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.day-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.1fr) minmax(220px, 1.5fr) 90px minmax(160px, 1.4fr);
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1.5px dashed var(--line);
+}
+.day-row.is-selectable {
+  grid-template-columns: 20px minmax(150px, 1.1fr) minmax(220px, 1.5fr) 90px minmax(160px, 1.4fr);
+}
+.day-row:last-child {
+  border-bottom: none;
+}
+.day-row.is-selected {
+  background: var(--mustard-soft);
+}
+.day-row-check {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.day-row-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.day-row-who strong {
+  flex: 1 1 100%;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.day-row-who small {
+  flex: 1 1 100%;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+.day-row-who small.cell-warning {
+  color: var(--brick-dark);
+}
+.day-periods {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.day-periods li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+.period-num {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--mustard);
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+}
+.punch {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.punch small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.punch b {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.day-row-hours {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.day-row-hours strong {
+  font-weight: 800;
+}
+.day-row-hours small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.day-row-notes {
+  min-width: 0;
+}
+.day-more {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-4);
 }
 
 /* Admin correction of a day's times */
@@ -2122,6 +2265,35 @@ tbody tr.row-selected td {
 }
 
 @media (max-width: 900px) {
+  .day-row,
+  .day-row.is-selectable {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .day-row-check {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .day-row-who {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .day-periods {
+    grid-column: 1 / -1;
+  }
+  .day-row-hours {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+  .day-row-notes {
+    grid-column: 1 / -1;
+  }
+  .day-counts {
+    flex-basis: 100%;
+    margin: 0;
+  }
   .sidebar-toggle {
     display: inline-flex;
   }

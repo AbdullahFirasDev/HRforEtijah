@@ -36,7 +36,7 @@ export const attendanceApi = apiSlice.injectEndpoints({
       query: (body) => ({ url: '/attendance/face', method: 'POST', body }),
       invalidatesTags: ['Attendance'],
     }),
-    // Keep working past the end of the open period (1–4 hours at a time)
+    // Keep working past the end of the open period, until checking out
     extendSession: builder.mutation({
       query: (body) => ({ url: '/attendance/extend', method: 'POST', body }),
       invalidatesTags: ['Attendance'],
@@ -56,10 +56,6 @@ export const attendanceApi = apiSlice.injectEndpoints({
       query: (body) => ({ url: '/attendance/manual', method: 'POST', body }),
       invalidatesTags: ['Attendance', 'Report'],
     }),
-    validateAttendance: builder.mutation({
-      query: ({ id, ...body }) => ({ url: `/attendance/${id}/validate`, method: 'PATCH', body }),
-      invalidatesTags: ['Attendance'],
-    }),
   }),
 });
 
@@ -70,7 +66,6 @@ export const {
   useGetMyAttendanceQuery,
   useGetTeamAttendanceQuery,
   useGetAllAttendanceQuery,
-  useValidateAttendanceMutation,
   useDeleteAttendanceMutation,
   useExtendSessionMutation,
   useEnrollFaceMutation,

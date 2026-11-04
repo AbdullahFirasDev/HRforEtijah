@@ -13,7 +13,6 @@ import {
   IconClockPlus,
   IconChart,
   IconUsers,
-  IconShieldCheck,
   IconMapPin,
   IconTimesheet,
   IconHourglass,
@@ -35,7 +34,6 @@ const NAV_ITEMS = {
     { to: '/manager/time-leaves', label: 'الزمنيات', icon: IconHourglass },
     { to: '/manager/timesheet', label: 'الكشف الشهري', icon: IconTimesheet },
     { to: '/manager/overtime', label: 'اعتماد العمل الإضافي', icon: IconClockPlus },
-    { to: '/manager/validation', label: 'التحقق من الحضور', icon: IconShieldCheck },
     { to: '/manager/reports', label: 'التقارير', icon: IconChart },
   ],
   admin: [
@@ -44,7 +42,6 @@ const NAV_ITEMS = {
     { to: '/admin/time-leaves', label: 'الزمنيات', icon: IconHourglass },
     { to: '/admin/timesheet', label: 'الكشف الشهري', icon: IconTimesheet },
     { to: '/admin/overtime', label: 'اعتماد العمل الإضافي', icon: IconClockPlus },
-    { to: '/admin/validation', label: 'التحقق من الحضور', icon: IconShieldCheck },
     { to: '/admin/reports', label: 'التقارير', icon: IconChart },
     { to: '/admin/messages', label: 'الرسائل', icon: IconMail },
     { to: '/admin/geofence', label: 'النطاق الجغرافي', icon: IconMapPin },

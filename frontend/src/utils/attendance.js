@@ -1,7 +1,7 @@
-import { formatDistance, formatMinutes } from './format';
+import { formatClockTime, formatDistance, formatMinutes } from './format';
 
 // The day's work periods. Records saved before multiple periods existed
-// keep their only pair (selfies included) in punchIn/punchOut.
+// keep their only pair in punchIn/punchOut.
 export const sessionsOf = (record) => {
   if (record?.sessions?.length) return record.sessions;
   return record?.punchIn?.time ? [{ punchIn: record.punchIn, punchOut: record.punchOut }] : [];
@@ -17,21 +17,40 @@ export const openSessionOf = (record) => {
   return last && !last.punchOut?.time ? last : null;
 };
 
-// Every selfie of the day with a label, in punch order
-export const selfiesOf = (record) => {
+export const faceVerifiedOf = (record) => sessionsOf(record).some((s) => s.punchIn?.faceDistance != null);
+
+export const isExtended = (session) => !!(session?.extendedAt || session?.extendedUntil);
+
+// What the employee is doing now, or how their day ended
+export const dayState = (record) => {
   const sessions = sessionsOf(record);
-  const numbered = sessions.length > 1;
-  return sessions.flatMap((s, i) => {
-    const n = numbered ? ` ${i + 1}` : '';
-    return [
-      s.punchIn?.selfie && { src: s.punchIn.selfie, label: `صورة الحضور${n}` },
-      s.punchOut?.selfie && { src: s.punchOut.selfie, label: `صورة الانصراف${n}` },
-    ].filter(Boolean);
-  });
+  const last = sessions[sessions.length - 1];
+  if (last && !last.punchOut?.time) {
+    return isExtended(last)
+      ? { key: 'extended', text: 'وقت ممدد جارٍ', variant: 'warning' }
+      : { key: 'working', text: 'ما زال في الدوام', variant: 'info' };
+  }
+  if (last?.punchOut?.auto) return { key: 'auto', text: 'انصراف تلقائي', variant: 'danger' };
+  if (last?.punchOut?.leave) return { key: 'leave', text: 'خرج بزمنية', variant: 'info' };
+  return { key: 'left', text: 'انصرف', variant: 'success' };
 };
 
-// Punches confirmed by face match keep no photo
-export const faceVerifiedOf = (record) => sessionsOf(record).some((s) => s.punchIn?.faceDistance != null);
+// Hours so far, counting the period still open
+export const runningHours = (record, now) => {
+  const open = openSessionOf(record);
+  const running = open ? Math.max(0, now - new Date(open.punchIn.time)) / 3600000 : 0;
+  return Math.round(((record.totalHours || 0) + running) * 100) / 100;
+};
+
+// Minutes past the end of an open extended period
+export const runningExtraMinutes = (session, now) =>
+  session?.extendedFrom ? Math.max(0, Math.floor((now - new Date(session.extendedFrom)) / 60000)) : 0;
+
+// e.g. "09:00 ص - 03:00 م، 05:00 م - الآن"
+export const periodsText = (record) =>
+  sessionsOf(record)
+    .map((s) => `${formatClockTime(s.punchIn?.time)} - ${s.punchOut?.time ? formatClockTime(s.punchOut.time) : 'الآن'}`)
+    .join('، ');
 
 // Badges for anything unusual about the day. Works on attendance records and
 // on report rows (which carry sessionsCount and dayOff instead).
@@ -46,6 +65,11 @@ export const attendanceNotes = (r) => {
       variant: 'warning',
     },
     r.missedPunchOut && { key: 'missed', text: 'انصراف تلقائي', variant: 'danger' },
+    sessionsOf(r).some((s) => s.punchOut?.auto && isExtended(s)) && {
+      key: 'unclosed',
+      text: 'تمديد لم يُغلق',
+      variant: 'danger',
+    },
     r.overtimeMinutes > 0 && { key: 'overtime', text: `إضافي ${formatMinutes(r.overtimeMinutes)}`, variant: 'info' },
     r.leaveMinutes > 0 && { key: 'leave', text: `زمنية ${formatMinutes(r.leaveMinutes)}`, variant: 'info' },
     (r.edited ?? r.edits?.length > 0) && { key: 'edited', text: 'معدّل يدوياً', variant: 'muted' },

@@ -4,8 +4,6 @@ const VARIANT_MAP = {
   Completed: 'success',
   Incomplete: 'warning',
   Absent: 'danger',
-  Valid: 'success',
-  Invalid: 'danger',
   Pending: 'muted',
   Approved: 'success',
   Rejected: 'danger',

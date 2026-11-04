@@ -8,7 +8,6 @@ const {
   getTodayStatus,
   getTeamAttendance,
   getAllAttendance,
-  validateAttendance,
   deleteAttendance,
   getAttendanceRecord,
   editAttendancePeriods,
@@ -20,7 +19,6 @@ const { faceRule } = require('../utils/faceData');
 const { protect, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const closeOverdue = require('../middleware/closeOverdue');
-const { MAX_EXTEND_HOURS } = require('../utils/attendanceDay');
 
 const router = express.Router();
 
@@ -42,28 +40,12 @@ router.post(
 );
 router.post('/punch-in', punchValidators, validate, punchIn);
 router.post('/punch-out', punchValidators, validate, punchOut);
-router.post(
-  '/extend',
-  [
-    body('hours', `مدة التمديد يجب أن تكون من 1 إلى ${MAX_EXTEND_HOURS} ساعات`).isInt({ min: 1, max: MAX_EXTEND_HOURS }).toInt(),
-    body('reason', 'سبب التمديد طويل جداً (200 حرف كحد أقصى)').optional({ values: 'null' }).isString().isLength({ max: 200 }),
-  ],
-  validate,
-  extendSession
-);
+router.post('/extend', extendSession);
 router.get('/today', getTodayStatus);
 router.get('/me', getMyAttendance);
 
 router.get('/team', authorize('manager', 'admin'), getTeamAttendance);
 router.get('/all', authorize('admin'), getAllAttendance);
-
-router.patch(
-  '/:id/validate',
-  authorize('manager', 'admin'),
-  [body('status').isIn(['Valid', 'Invalid']).withMessage('نتيجة التحقق يجب أن تكون "صحيح" أو "غير صحيح"')],
-  validate,
-  validateAttendance
-);
 
 // Deleting records is for admins only
 router.post(

@@ -49,6 +49,13 @@ export const formatDateLong = (value) => {
   return d.toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
+// e.g. "الثلاثاء، 27 مايو 2025"
+export const formatDayLong = (value) => {
+  const d = toDate(value);
+  if (!d) return '-';
+  return d.toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+};
+
 // e.g. "مايو 2025"
 export const formatMonthYear = (year, month) =>
   new Date(year, month - 1, 1).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' });
@@ -69,6 +76,14 @@ export const formatMinutes = (minutes) => {
   const m = minutes % 60;
   if (!h) return `${m} د`;
   return m ? `${h} س ${m} د` : `${h} س`;
+};
+
+// A running timer, e.g. "01:05:09"
+export const formatTimer = (ms) => {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  return [seconds / 3600, (seconds % 3600) / 60, seconds % 60]
+    .map((part) => String(Math.floor(part)).padStart(2, '0'))
+    .join(':');
 };
 
 // e.g. "350 م", "2.4 كم"

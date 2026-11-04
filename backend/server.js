@@ -26,10 +26,10 @@ const app = express();
 
 app.use(helmet());
 
-// Older cached apps may still post a selfie: accept the size so they get the
-// "update the app" message from validation instead of a bare 413.
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Requests are small. Older cached apps may still post a selfie: accept that
+// size so they get the "update the app" message instead of a bare 413.
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // On Vercel the request arrives through Vercel's proxy, so take the client IP
 // from X-Forwarded-For (otherwise the rate limiter puts every user in one bucket).

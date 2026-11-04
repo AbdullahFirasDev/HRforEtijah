@@ -32,7 +32,9 @@ export default function EditTimesModal({ recordId, userId, userName, date, shift
 
   useEffect(() => {
     if (record && !periods) {
-      setPeriods(record.periods.map((p) => ({ index: p.index, in: p.in, out: p.out || '', auto: p.auto, manual: p.manual })));
+      setPeriods(
+        record.periods.map((p) => ({ index: p.index, in: p.in, out: p.out || '', auto: p.auto, manual: p.manual, extended: p.extended }))
+      );
     }
   }, [record, periods]);
 
@@ -48,7 +50,13 @@ export default function EditTimesModal({ recordId, userId, userName, date, shift
     setPeriods((list) => list.map((p, j) => (j === i ? { ...p, ...patch } : p)));
     setErrors((prev) => ({ ...prev, [`p${i}`]: undefined }));
   };
-  const total = (periods || []).reduce((sum, p) => sum + (p.in && p.out && p.out > p.in ? clockHours(p.in, p.out) : 0), 0);
+  // An extended period may end after midnight, earlier on the clock than it began
+  const periodLength = (p) => {
+    if (!p.in || !p.out) return 0;
+    if (p.out > p.in) return clockHours(p.in, p.out);
+    return p.extended ? 24 - clockHours(p.out, p.in) : 0;
+  };
+  const total = (periods || []).reduce((sum, p) => sum + periodLength(p), 0);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -130,9 +138,10 @@ export default function EditTimesModal({ recordId, userId, userName, date, shift
                       <span />
                     )}
                   </div>
-                  {(p.auto || p.manual || errors[`p${i}`]) && (
+                  {(p.auto || p.manual || p.extended || errors[`p${i}`]) && (
                     <div className="edit-period-notes">
                       {p.auto && <span className="badge danger">أُغلقت تلقائياً: لم يسجّل الانصراف</span>}
+                      {p.extended && <span className="badge warning">ممددة: يمكن أن ينتهي الانصراف بعد منتصف الليل</span>}
                       {p.manual && <span className="badge muted">معدّلة سابقاً</span>}
                       {errors[`p${i}`] && <p className="field-error">{errors[`p${i}`]}</p>}
                     </div>

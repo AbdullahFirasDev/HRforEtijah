@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import FaceCapture from '../components/FaceCapture';
 import StatusBadge from '../components/StatusBadge';
 import AttendanceNotes from '../components/AttendanceNotes';
-import ExtendTimePanel from '../components/ExtendTimePanel';
 import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
 import Loading from '../components/Loading';
 import useGeolocation from '../utils/useGeolocation';
-import { formatClock, formatClockTime, formatDateLong, formatHours, formatMinutes, formatTime } from '../utils/format';
-import { openSessionOf, periodHours, sessionsOf } from '../utils/attendance';
+import { formatClock, formatClockTime, formatDateLong, formatHours, formatMinutes, formatTime, formatTimer } from '../utils/format';
+import { isExtended, openSessionOf, periodHours, sessionsOf } from '../utils/attendance';
 import { shiftsText, weekLines } from '../utils/workSchedule';
 import { dueDeparture, leaveTimeText, leaveTypeLabel, leaveUseText, pendingReturn } from '../utils/timeLeave';
 import {
   useEnrollFaceMutation,
+  useExtendSessionMutation,
   useGetTodayStatusQuery,
   usePunchInMutation,
   usePunchOutMutation,
@@ -38,13 +38,13 @@ export default function EmployeeDashboard() {
   const { fetchLocation } = useGeolocation();
 
   const [enrollFace, { isLoading: enrolling }] = useEnrollFaceMutation();
+  const [extendSession, { isLoading: extending }] = useExtendSessionMutation();
   const [enrollingFace, setEnrollingFace] = useState(false);
   // Which punch the face check on screen is for: 'in', 'out' or none
   const [scanning, setScanning] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [extending, setExtending] = useState(false);
   const [dismissed, setDismissed] = useState(readDismissed);
   const [now, setNow] = useState(() => Date.now());
 
@@ -64,18 +64,22 @@ export default function EmployeeDashboard() {
   const scheduleHours = shiftsText(today?.shifts);
   const todayWeekday = today ? new Date(`${today.date}T00:00:00Z`).getUTCDay() : null;
   const week = today?.week ? weekLines(today.week) : [];
-  const closesAt = isWorking && attendance?.autoCloseAt ? new Date(attendance.autoCloseAt) : null;
+  // Extended time runs until checking out, so it has a timer instead of a countdown
+  const extraFrom = open?.extendedFrom ? new Date(open.extendedFrom) : null;
+  const closesAt = isWorking && !extraFrom && attendance?.autoCloseAt ? new Date(attendance.autoCloseAt) : null;
   const minutesLeft = closesAt ? Math.max(0, Math.ceil((closesAt.getTime() - now) / 60000)) : null;
   // The period stays open a few minutes after its end so leaving on time is possible
   const lastCall = closesAt ? new Date(closesAt.getTime() + (today?.closeGraceMinutes || 0) * 60000) : null;
   const graceLeft = lastCall ? Math.max(0, Math.ceil((lastCall.getTime() - now) / 60000)) : null;
   const missed = (today?.recentMissed || []).filter((m) => !dismissed.includes(String(m.id)));
 
+  const ticking = !!closesAt || !!extraFrom;
   useEffect(() => {
-    if (!closesAt) return undefined;
-    const id = setInterval(() => setNow(Date.now()), 30000);
+    if (!ticking) return undefined;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), extraFrom ? 1000 : 30000);
     return () => clearInterval(id);
-  }, [closesAt]);
+  }, [ticking, !!extraFrom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dismissMissed = () => {
     const next = [...dismissed, ...missed.map((m) => String(m.id))];
@@ -91,6 +95,18 @@ export default function EmployeeDashboard() {
     setError('');
     setSuccess('');
     setScanning(type);
+  };
+
+  const handleExtend = async () => {
+    setError('');
+    setSuccess('');
+    try {
+      await extendSession().unwrap();
+      setSuccess('تم تمديد وقتك. يستمر العدّ حتى تسجّل انصرافك.');
+      refetch();
+    } catch (err) {
+      setError(err?.data?.message || 'تعذر تمديد الوقت. حاول مرة أخرى.');
+    }
   };
 
   const handleEnroll = async (print) => {
@@ -143,7 +159,6 @@ export default function EmployeeDashboard() {
           );
         }
       }
-      setExtending(false);
       refetch();
     } catch (err) {
       setError(err?.data?.message || err?.message || 'حدث خطأ غير متوقع. حاول مرة أخرى.');
@@ -219,16 +234,11 @@ export default function EmployeeDashboard() {
           <span>
             حالة اليوم: <StatusBadge status={attendance.status} />
           </span>
-          {attendance.validation?.status && attendance.validation.status !== 'Pending' && (
-            <span>
-              التحقق من الهوية: <StatusBadge status={attendance.validation.status} />
-            </span>
-          )}
           <AttendanceNotes record={attendance} empty={null} />
         </div>
       )}
 
-      {(sessions.length > 1 || sessions.some((s) => s.punchOut?.auto || s.extendedUntil)) && (
+      {(sessions.length > 1 || sessions.some((s) => s.punchOut?.auto || isExtended(s))) && (
         <div className="card card-narrow">
           <h3 className="card-title">فترات اليوم</h3>
           <ol className="session-list">
@@ -239,7 +249,7 @@ export default function EmployeeDashboard() {
                   من {formatTime(s.punchIn?.time)} إلى {s.punchOut?.time ? formatTime(s.punchOut.time) : 'الآن'}
                 </span>
                 {s.punchOut?.auto && <span className="badge danger">انصراف تلقائي</span>}
-                {s.extendedUntil && <span className="badge info">ممدد حتى {formatClockTime(s.extendedUntil)}</span>}
+                {isExtended(s) && <span className="badge warning">وقت ممدد</span>}
                 {s.punchOut?.time ? (
                   <span className="badge muted">{formatHours(periodHours(s))}</span>
                 ) : (
@@ -278,20 +288,45 @@ export default function EmployeeDashboard() {
         </div>
       )}
 
-      {closesAt && (
-        <div className={`closing-banner${minutesLeft <= WARN_MINUTES ? ' is-soon' : ''}`} role="status">
+      {extraFrom && (
+        <div className="closing-banner is-extended">
+          <div className="extended-clock">
+            <small>الوقت الإضافي</small>
+            <strong role="timer" dir="ltr">
+              {formatTimer(now - extraFrom.getTime())}
+            </strong>
+          </div>
           <p>
-            {open.extendedUntil ? (
+            {now >= extraFrom.getTime() ? (
               <>
-                وقتك ممدد حتى <strong>{formatClockTime(closesAt)}</strong>. سجّل انصرافك عند انتهائك؛ يُرسل الوقت الإضافي
-                إلى مديرك للموافقة.
+                انتهى دوامك الساعة <strong>{formatClockTime(extraFrom)}</strong>. يستمر العدّ حتى تسجّل انصرافك، وإن بلغ الوقت
+                الإضافي 30 دقيقة يُرسل إلى مديرك للموافقة.
               </>
             ) : (
               <>
-                ينتهي دوامك الساعة <strong>{formatClockTime(closesAt)}</strong>. إن لم تسجّل انصرافك حتى{' '}
-                <strong>{formatClockTime(lastCall)}</strong> يُغلق تلقائياً.
+                يبدأ العدّ عند نهاية دوامك الساعة <strong>{formatClockTime(extraFrom)}</strong> ويستمر حتى تسجّل انصرافك.
               </>
-            )}{' '}
+            )}
+          </p>
+          <button
+            type="button"
+            className="btn danger btn-sm"
+            disabled={!!scanning || submitting}
+            onClick={() => startScan('out')}
+          >
+            إنهاء الوقت وتسجيل الانصراف
+          </button>
+          <small className="extended-note">
+            إن نسيت تسجيل الانصراف يُغلق بعد {today?.extensionLimitHours} ساعة، ولا يُحتسب الوقت الممدد إلا بتصحيح من مسؤول النظام.
+          </small>
+        </div>
+      )}
+
+      {closesAt && (
+        <div className={`closing-banner${minutesLeft <= WARN_MINUTES ? ' is-soon' : ''}`} role="status">
+          <p>
+            ينتهي دوامك الساعة <strong>{formatClockTime(closesAt)}</strong>. إن لم تسجّل انصرافك حتى{' '}
+            <strong>{formatClockTime(lastCall)}</strong> يُغلق تلقائياً.{' '}
             <span className="closing-left">
               {minutesLeft > 0
                 ? `متبقٍ ${formatMinutes(minutesLeft)}`
@@ -300,22 +335,9 @@ export default function EmployeeDashboard() {
                   : 'انتهى الوقت، ويُغلق الآن'}
             </span>
           </p>
-          {!extending && (
-            <button type="button" className="btn secondary btn-sm" onClick={() => setExtending(true)}>
-              {open.extendedUntil ? 'تمديد إضافي' : 'تمديد الوقت'}
-            </button>
-          )}
-          {extending && (
-            <ExtendTimePanel
-              onCancel={() => setExtending(false)}
-              onDone={(message) => {
-                setExtending(false);
-                setError('');
-                setSuccess(message);
-                refetch();
-              }}
-            />
-          )}
+          <button type="button" className="btn secondary btn-sm" disabled={extending} onClick={handleExtend}>
+            {extending ? 'جارٍ التمديد...' : 'تمديد الوقت'}
+          </button>
         </div>
       )}
 

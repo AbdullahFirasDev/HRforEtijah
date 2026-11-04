@@ -54,8 +54,6 @@ const getDailyReport = asyncHandler(async (req, res) => {
       date: r.date,
       punchInTime: r.punchIn?.time || null,
       punchOutTime: r.punchOut?.time || null,
-      punchInSelfie: sessions[0]?.punchIn?.selfie || null,
-      punchOutSelfie: sessions[sessions.length - 1]?.punchOut?.selfie || null,
       faceVerified: sessions.some((s) => s.punchIn?.faceDistance != null),
       location: r.punchIn?.location || null,
       totalHours: r.totalHours,
@@ -68,8 +66,6 @@ const getDailyReport = asyncHandler(async (req, res) => {
       edited: !!r.edits?.length,
       overtimeMinutes: r.overtimeMinutes || 0,
       leaveMinutes: r.leaveMinutes || 0,
-      validationStatus: r.validation?.status,
-      validationRemarks: r.validation?.remarks,
     };
   });
 
@@ -100,8 +96,7 @@ const exportDailyReportCsv = asyncHandler(async (req, res) => {
     'Day Off',
     'Missed Punch-out',
     'Overtime (min)',
-    'Validation',
-    'Remarks',
+    'Face Verified',
   ];
 
   const rows = records.map((r) => [
@@ -120,8 +115,7 @@ const exportDailyReportCsv = asyncHandler(async (req, res) => {
     r.schedule?.dayOff ? 'Yes' : 'No',
     r.missedPunchOut ? 'Yes' : 'No',
     r.overtimeMinutes || 0,
-    r.validation?.status || 'Pending',
-    (r.validation?.remarks || '').replace(/,/g, ';'),
+    r.workSessions().some((s) => s.punchIn?.faceDistance != null) ? 'Yes' : 'No',
   ]);
 
   const csv = [header, ...rows].map((row) => row.join(',')).join('\n');

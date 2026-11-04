@@ -4,8 +4,6 @@ export const STATUS_LABELS = {
   Completed: 'مكتمل',
   Incomplete: 'غير مكتمل',
   Absent: 'غائب',
-  Valid: 'صحيح',
-  Invalid: 'غير صحيح',
   Pending: 'قيد الانتظار',
   Approved: 'مقبول',
   Rejected: 'مرفوض',

@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const punchSchema = new mongoose.Schema(
   {
     time: { type: Date },
-    selfie: { type: String }, // photo on records from before face verification
     // How close the face print was to the employee's; no image is kept
     faceDistance: { type: Number },
     location: {
@@ -38,7 +37,11 @@ const sessionSchema = new mongoose.Schema(
   {
     punchIn: punchSchema,
     punchOut: punchSchema,
-    // Set when the employee chose to keep working past the end of the period
+    // Pressed "extend": the period now runs until the employee checks out.
+    // extendedFrom is the end it had before, where extra time starts.
+    extendedAt: { type: Date },
+    extendedFrom: { type: Date },
+    // Extensions of a fixed length, from before they became open-ended
     extendedUntil: { type: Date },
     extendReason: { type: String },
   },
@@ -54,12 +57,12 @@ const attendanceSchema = new mongoose.Schema(
     // one attendance record per user per day.
     date: { type: String, required: true },
 
-    // Every check-in/check-out pair of the day, with selfies. Most staff have
-    // one; staff allowed multiple punches can have several (see utils/schedule.js).
+    // Every check-in/check-out pair of the day. Most staff have one; staff
+    // allowed multiple punches can have several (see utils/schedule.js).
     sessions: [sessionSchema],
     // Summary of the day: first check-in and last check-out (none while a
-    // period is open), without selfies. Records saved before `sessions`
-    // existed keep their only pair here, selfies included.
+    // period is open). Records saved before `sessions` existed keep their
+    // only pair here.
     punchIn: punchSchema,
     punchOut: punchSchema,
 
@@ -92,17 +95,6 @@ const attendanceSchema = new mongoose.Schema(
 
     overtimeRequested: { type: Boolean, default: false },
     overtime: { type: mongoose.Schema.Types.ObjectId, ref: 'Overtime', default: null },
-
-    validation: {
-      status: {
-        type: String,
-        enum: ['Pending', 'Valid', 'Invalid'],
-        default: 'Pending',
-      },
-      remarks: { type: String, default: '' },
-      verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-      verifiedAt: { type: Date, default: null },
-    },
   },
   // A double-tapped punch must not add two periods: the second save fails
   { timestamps: true, optimisticConcurrency: true }
@@ -125,8 +117,6 @@ attendanceSchema.methods.adoptLegacySession = function () {
   const pair = { punchIn: this.punchIn.toObject() };
   if (this.punchOut?.time) pair.punchOut = this.punchOut.toObject();
   this.sessions.push(pair);
-  this.punchIn.selfie = undefined;
-  if (this.punchOut?.time) this.punchOut.selfie = undefined;
 };
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

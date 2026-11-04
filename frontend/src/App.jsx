@@ -17,7 +17,6 @@ import OvertimeRequests from './pages/OvertimeRequests';
 import Reports from './pages/Reports';
 import TeamAttendance from './pages/TeamAttendance';
 import OvertimeApprovals from './pages/OvertimeApprovals';
-import AttendanceValidation from './pages/AttendanceValidation';
 import AdminUsers from './pages/AdminUsers';
 import AdminAttendance from './pages/AdminAttendance';
 import GeofenceSettings from './pages/GeofenceSettings';
@@ -84,7 +83,6 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/manager/timesheet" element={withLayout(Timesheets)} />
         <Route path="/manager/time-leaves" element={withLayout(TimeLeaveApprovals)} />
         <Route path="/manager/overtime" element={withLayout(OvertimeApprovals)} />
-        <Route path="/manager/validation" element={withLayout(AttendanceValidation)} />
         <Route path="/manager/reports" element={withLayout(Reports)} />
       </Route>
 
@@ -95,7 +93,6 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/admin/timesheet" element={withLayout(Timesheets)} />
         <Route path="/admin/time-leaves" element={withLayout(TimeLeaveApprovals)} />
         <Route path="/admin/overtime" element={withLayout(OvertimeApprovals)} />
-        <Route path="/admin/validation" element={withLayout(AttendanceValidation)} />
         <Route path="/admin/reports" element={withLayout(Reports)} />
         <Route path="/admin/messages" element={withLayout(AdminMessages)} />
         <Route path="/admin/geofence" element={withLayout(GeofenceSettings)} />

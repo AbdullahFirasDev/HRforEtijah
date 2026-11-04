@@ -78,7 +78,7 @@ export function validatePeriods({ periods, reason, isToday }) {
     const lastOne = k === order.length - 1;
     if (!p.in) message = 'حدّد وقت الحضور';
     else if (!p.out && !(isToday && lastOne)) message = 'حدّد وقت الانصراف';
-    else if (p.out && p.out <= p.in) message = 'وقت الانصراف يجب أن يكون بعد وقت الحضور';
+    else if (p.out && p.out <= p.in && !(p.extended && lastOne)) message = 'وقت الانصراف يجب أن يكون بعد وقت الحضور';
     else if (k > 0 && order[k - 1].out && p.in < order[k - 1].out) message = 'تبدأ هذه الفترة قبل انتهاء الفترة السابقة';
     errors[`p${p.i}`] = message;
   });

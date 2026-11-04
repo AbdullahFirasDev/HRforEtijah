@@ -150,7 +150,6 @@ const deleteUser = asyncHandler(async (req, res) => {
   // Records this user reviewed stay, without pointing at a deleted account
   await Overtime.updateMany({ reviewedBy: user._id }, { $set: { reviewedBy: null } });
   await TimeLeave.updateMany({ reviewedBy: user._id }, { $set: { reviewedBy: null } });
-  await Attendance.updateMany({ 'validation.verifiedBy': user._id }, { $set: { 'validation.verifiedBy': null } });
   await user.deleteOne();
 
   res.json({

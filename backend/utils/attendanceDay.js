@@ -2,24 +2,28 @@ const Attendance = require('../models/Attendance');
 const Overtime = require('../models/Overtime');
 const TimeLeave = require('../models/TimeLeave');
 const { calculateHours, deriveStatus, STANDARD_SHIFT_HOURS } = require('./hours');
-const { APP_TIMEZONE, localMinutes, zonedInstant, endOfLocalDay } = require('./dateUtils');
+const { APP_TIMEZONE, addDays, localMinutes, todayLocal, zonedInstant, endOfLocalDay } = require('./dateUtils');
 const { dayPlan, planShifts, samePlan, targetHours, toMinutes } = require('./schedule');
 
 // Day maths for one attendance record: worked hours, lateness, early leave,
 // overtime, approved time leaves (زمنيات), and closing a period nobody
 // checked out of. Each open period has an automatic closing time
-// (`autoCloseAt`): the end of its work period, the start of an approved
-// early-departure leave, or the time the employee extended it to. The period
-// stays open for a few minutes after it, so someone leaving on time can still
-// check out; after that it is closed at that time and the day is marked as a
-// missed check-out.
+// (`autoCloseAt`): the end of its work period or the start of an approved
+// early-departure leave. The period stays open for a few minutes after it, so
+// someone leaving on time can still check out; after that it is closed at that
+// time and the day is marked as a missed check-out.
+//
+// An extended period has no end of its own: it runs until the employee checks
+// out, past midnight if need be. Its `autoCloseAt` is only a backstop for
+// someone who forgets, see closeOverduePeriods.
 
 const HOUR = 3600e3;
 const MINUTE = 60e3;
 const AUTO_CLOSE_GRACE_MINUTES = 5;
 // Overtime requests start at half an hour (see models/Overtime.js)
 const MIN_AUTO_OVERTIME_MINUTES = 30;
-const MAX_EXTEND_HOURS = 4;
+// How long after the period's end a forgotten extension is closed
+const EXTENSION_LIMIT_HOURS = 12;
 
 const tzOf = (plan) => plan?.timezone || APP_TIMEZONE;
 const leaveLength = (l) => toMinutes(l.to) - toMinutes(l.from);
@@ -30,6 +34,14 @@ const minutesBetween = (a, b) => Math.max(0, Math.round((new Date(b) - new Date(
 const shiftIndexAt = (shifts, instant, timeZone) => {
   const minutes = localMinutes(instant, timeZone);
   return shifts.findIndex((s) => toMinutes(s.end) > minutes);
+};
+
+// The record a punch applies to: today's, or yesterday's while it still has a
+// period open (an extended one past midnight, or the last minutes of a day)
+const currentRecord = async (userId) => {
+  const today = todayLocal();
+  const carried = await Attendance.findOne({ user: userId, date: addDays(today, -1), autoCloseAt: { $ne: null } });
+  return carried || Attendance.findOne({ user: userId, date: today });
 };
 
 // Approved time leaves of the record's day
@@ -59,7 +71,8 @@ const recalcDay = (record, leaves = []) => {
       if (!inShift.length) return;
       late += Math.max(0, localMinutes(inShift[0].punchIn.time, tz) - toMinutes(shift.start));
       const last = inShift[inShift.length - 1];
-      if (last.punchOut?.time && !last.punchOut.auto) {
+      const sameDay = last.punchOut?.time <= endOfLocalDay(record.date);
+      if (last.punchOut?.time && !last.punchOut.auto && sameDay) {
         early += Math.max(0, toMinutes(shift.end) - localMinutes(last.punchOut.time, tz));
       }
     });
@@ -134,6 +147,16 @@ const closeOpenSession = (record, at, { faceDistance, location, leave } = {}, le
   recalcDay(record, leaves);
 };
 
+// The employee keeps working past the end of the open period, for as long as
+// it takes
+const extendOpenSession = (record, open, now = new Date()) => {
+  if (open.extendedAt) return;
+  const end = record.autoCloseAt || now;
+  open.extendedAt = now;
+  open.extendedFrom = end;
+  record.autoCloseAt = new Date(Math.max(end.getTime(), now.getTime()) + EXTENSION_LIMIT_HOURS * HOUR);
+};
+
 // After something outside the record changed (a leave approved or
 // cancelled): recompute the day and, if a period is open and not extended,
 // its closing time
@@ -141,7 +164,7 @@ const refreshDay = async (record) => {
   const leaves = await loadLeaves(record);
   recalcDay(record, leaves);
   const open = record.sessions[record.sessions.length - 1];
-  if (open && !open.punchOut?.time && !open.extendedUntil) {
+  if (open && !open.punchOut?.time && !open.extendedUntil && !open.extendedAt) {
     record.autoCloseAt = autoCloseTime(record, open.punchIn.time, leaves);
   }
 };
@@ -168,12 +191,14 @@ const reapplySchedule = async (user, from, to) => {
 // Closes every period whose closing time (plus the grace minutes) has passed.
 // Runs before attendance is read or changed, so nobody sees (or extends) a
 // period that has ended. The recorded time is the closing time itself: the
-// grace is a chance to check out, not extra paid minutes.
+// grace is a chance to check out, not extra paid minutes. A forgotten extension
+// is recorded at the end it had before, so hours nobody confirmed aren't
+// counted; an admin can correct the time if they were really worked.
 const closeOverduePeriods = async () => {
   const due = await Attendance.find({ autoCloseAt: { $lte: new Date(Date.now() - AUTO_CLOSE_GRACE_MINUTES * MINUTE) } });
   for (const record of due) {
     record.adoptLegacySession();
-    const at = record.autoCloseAt;
+    const at = record.sessions[record.sessions.length - 1]?.extendedFrom || record.autoCloseAt;
     const leaves = await loadLeaves(record);
     // Closed at the start of an approved early departure: that leave was taken
     const leave = leaves.find(
@@ -197,7 +222,7 @@ const closeOverduePeriods = async () => {
 // Time worked past the plan after the employee extended their period becomes
 // an overtime request for the manager (unless the day already has one)
 const requestExtendedOvertime = async (record) => {
-  const extended = record.sessions.filter((s) => s.extendedUntil);
+  const extended = record.sessions.filter((s) => s.extendedAt || s.extendedUntil);
   if (!extended.length || record.overtimeRequested || record.overtimeMinutes < MIN_AUTO_OVERTIME_MINUTES) return null;
   const reasons = extended.map((s) => s.extendReason).filter(Boolean);
   const overtime = await Overtime.create({
@@ -213,8 +238,10 @@ const requestExtendedOvertime = async (record) => {
 };
 
 module.exports = {
-  MAX_EXTEND_HOURS,
+  EXTENSION_LIMIT_HOURS,
   AUTO_CLOSE_GRACE_MINUTES,
+  currentRecord,
+  extendOpenSession,
   loadLeaves,
   recalcDay,
   autoCloseTime,
