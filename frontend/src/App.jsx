@@ -24,6 +24,7 @@ import Timesheets from './pages/Timesheets';
 import TimeLeaves from './pages/TimeLeaves';
 import TimeLeaveApprovals from './pages/TimeLeaveApprovals';
 import AdminMessages from './pages/AdminMessages';
+import Notifications from './pages/Notifications';
 
 function withLayout(Component) {
   return (
@@ -75,6 +76,7 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/employee/time-leaves" element={withLayout(TimeLeaves)} />
         <Route path="/employee/overtime" element={withLayout(OvertimeRequests)} />
         <Route path="/employee/reports" element={withLayout(Reports)} />
+        <Route path="/employee/notifications" element={withLayout(Notifications)} />
       </Route>
 
       {/* Manager routes */}
@@ -84,6 +86,7 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/manager/time-leaves" element={withLayout(TimeLeaveApprovals)} />
         <Route path="/manager/overtime" element={withLayout(OvertimeApprovals)} />
         <Route path="/manager/reports" element={withLayout(Reports)} />
+        <Route path="/manager/notifications" element={withLayout(Notifications)} />
       </Route>
 
       {/* Admin routes */}
@@ -96,6 +99,7 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/admin/reports" element={withLayout(Reports)} />
         <Route path="/admin/messages" element={withLayout(AdminMessages)} />
         <Route path="/admin/geofence" element={withLayout(GeofenceSettings)} />
+        <Route path="/admin/notifications" element={withLayout(Notifications)} />
       </Route>
 
       <Route

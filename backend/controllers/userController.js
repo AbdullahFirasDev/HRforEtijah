@@ -6,9 +6,14 @@ const Message = require('../models/Message');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { createUserAccount } = require('../utils/userAccount');
-const { workSettingsFrom } = require('../utils/schedule');
+const { weeklyHours, workSettingsFrom } = require('../utils/schedule');
 const { reapplySchedule } = require('../utils/attendanceDay');
 const { todayLocal } = require('../utils/dateUtils');
+const notifyEvents = require('../utils/notifyEvents');
+
+// What the employee sees as their schedule, to tell them when it changes
+const scheduleOf = (user) =>
+  JSON.stringify([weeklyHours(user), [...(user.weeklyOffDays || [])].sort(), !!user.allowMultiplePunches]);
 
 // @desc  Get all users (admin) with optional role filter
 // @route GET /api/users
@@ -65,6 +70,7 @@ const updateUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'لا يمكنك تعطيل حسابك أو إزالة صلاحية المسؤول عن نفسك. اطلب ذلك من مسؤول آخر.');
   }
 
+  const scheduleBefore = scheduleOf(user);
   if (role) user.role = role;
   if (managerId !== undefined) user.manager = managerId || null;
   if (isActive !== undefined) user.isActive = isActive;
@@ -73,6 +79,7 @@ const updateUser = asyncHandler(async (req, res) => {
   await user.save();
   // Optionally recalculate already recorded days on the new schedule
   const reapplied = req.body.applyFrom ? await reapplySchedule(user, req.body.applyFrom, todayLocal()) : 0;
+  if (scheduleOf(user) !== scheduleBefore) await notifyEvents.scheduleChanged(user, req.user);
   res.json({ success: true, user: user.toSafeObject(), reapplied });
 });
 
@@ -100,6 +107,8 @@ const resetDevice = asyncHandler(async (req, res) => {
     { new: true }
   );
   if (!user) throw new ApiError(404, 'المستخدم غير موجود');
+  // The old phone may change hands: it stops receiving this user's push messages
+  await notifyEvents.deviceReset(user._id);
   res.json({ success: true, user: user.toSafeObject() });
 });
 
@@ -150,6 +159,7 @@ const deleteUser = asyncHandler(async (req, res) => {
   // Records this user reviewed stay, without pointing at a deleted account
   await Overtime.updateMany({ reviewedBy: user._id }, { $set: { reviewedBy: null } });
   await TimeLeave.updateMany({ reviewedBy: user._id }, { $set: { reviewedBy: null } });
+  await notifyEvents.userDeleted(user._id);
   await user.deleteOne();
 
   res.json({

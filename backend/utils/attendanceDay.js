@@ -4,6 +4,7 @@ const TimeLeave = require('../models/TimeLeave');
 const { calculateHours, deriveStatus, STANDARD_SHIFT_HOURS } = require('./hours');
 const { APP_TIMEZONE, addDays, localMinutes, todayLocal, zonedInstant, endOfLocalDay } = require('./dateUtils');
 const { dayPlan, planShifts, samePlan, targetHours, toMinutes } = require('./schedule');
+const notifyEvents = require('./notifyEvents');
 
 // Day maths for one attendance record: worked hours, lateness, early leave,
 // overtime, approved time leaves (زمنيات), and closing a period nobody
@@ -208,13 +209,16 @@ const closeOverduePeriods = async () => {
       await TimeLeave.updateOne({ _id: leave._id }, { $set: { departedAt: at } });
       leave.departedAt = at;
     }
+    const extended = !!record.sessions[record.sessions.length - 1]?.extendedAt;
     closeOpenSession(record, at, {}, leaves);
     try {
       await record.save();
     } catch (err) {
-      // Another request closed or changed it at the same moment
+      // Another request closed or changed it at the same moment (and tells the employee)
       if (err.name !== 'VersionError') throw err;
+      continue;
     }
+    await notifyEvents.autoClosed(record, at, { extended });
   }
   return due.length;
 };

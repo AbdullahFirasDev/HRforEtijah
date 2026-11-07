@@ -3,6 +3,7 @@ const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { todayLocal } = require('../utils/dateUtils');
+const notifyEvents = require('../utils/notifyEvents');
 
 const MAX_DAYS = 31;
 
@@ -103,6 +104,7 @@ const sendMessage = asyncHandler(async (req, res) => {
   }
 
   const message = await Message.create({ title, body, from, to, toAll: !!toAll, recipients: chosen, createdBy: req.user._id });
+  await notifyEvents.messageSent(message, req.user);
   res.status(201).json({ success: true, id: message._id });
 });
 
@@ -112,6 +114,7 @@ const sendMessage = asyncHandler(async (req, res) => {
 const deleteMessage = asyncHandler(async (req, res) => {
   const message = await Message.findByIdAndDelete(req.params.id);
   if (!message) throw new ApiError(404, 'الرسالة غير موجودة');
+  await notifyEvents.messageDeleted(message._id);
   res.json({ success: true });
 });
 

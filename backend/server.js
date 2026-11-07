@@ -19,6 +19,8 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const timesheetRoutes = require('./routes/timesheetRoutes');
 const timeLeaveRoutes = require('./routes/timeLeaveRoutes');
 const messageRoutes = require('./routes/messageRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const { startSweepTimer } = require('./utils/notificationSweep');
 
 connectDB();
 
@@ -95,6 +97,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/time-leaves', timeLeaveRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -103,6 +106,9 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 });
+
+// Reminders and push retries once a minute (does nothing until notifications are set up)
+startSweepTimer();
 
 process.on('unhandledRejection', (err) => {
   logger.error(`Unhandled Rejection: ${err.message}`);

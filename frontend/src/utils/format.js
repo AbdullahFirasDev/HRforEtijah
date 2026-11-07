@@ -90,3 +90,17 @@ export const formatTimer = (ms) => {
 export const formatDistance = (meters) => (meters < 1000 ? `${meters} م` : `${(meters / 1000).toFixed(1)} كم`);
 
 export const todayStr = () => new Date().toLocaleDateString('en-CA');
+
+// e.g. "الآن", "قبل 5 دقائق", "أمس"; a full date after a week
+const RELATIVE = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' });
+export const formatRelative = (value, now = Date.now()) => {
+  const d = toDate(value);
+  if (!d) return '-';
+  const seconds = Math.round((d.getTime() - now) / 1000);
+  const ago = Math.abs(seconds);
+  if (ago < 60) return 'الآن';
+  if (ago < 3600) return RELATIVE.format(Math.round(seconds / 60), 'minute');
+  if (ago < 86400) return RELATIVE.format(Math.round(seconds / 3600), 'hour');
+  if (ago < 7 * 86400) return RELATIVE.format(Math.round(seconds / 86400), 'day');
+  return formatDateLong(d);
+};

@@ -33,6 +33,18 @@ const baseQueryWithSession = async (args, api, extraOptions) => {
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithSession,
-  tagTypes: ['Attendance', 'Overtime', 'User', 'Report', 'Settings', 'TimeLeave', 'Message', 'MessageInbox'],
+  tagTypes: [
+    'Attendance',
+    'Overtime',
+    'User',
+    'Report',
+    'Settings',
+    'TimeLeave',
+    'Message',
+    'MessageInbox',
+    'Notification',
+    'NotificationCount',
+    'NotificationSettings',
+  ],
   endpoints: () => ({}),
 });

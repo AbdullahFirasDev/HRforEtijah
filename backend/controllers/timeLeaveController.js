@@ -6,6 +6,7 @@ const ApiError = require('../utils/ApiError');
 const { todayLocal, zonedInstant } = require('../utils/dateUtils');
 const { checkRequest } = require('../utils/timeLeave');
 const { refreshDay } = require('../utils/attendanceDay');
+const notifyEvents = require('../utils/notifyEvents');
 
 const EARLY_MS = 15 * 60e3;
 
@@ -52,6 +53,7 @@ const requestLeave = asyncHandler(async (req, res) => {
   const existing = await TimeLeave.find({ user: req.user._id, date }).lean();
   const minutes = checkRequest(req.user, req.body, existing);
   const leave = await TimeLeave.create({ user: req.user._id, date, type, from, to, minutes, reason });
+  await notifyEvents.timeLeaveRequested(leave, req.user);
   res.status(201).json({ success: true, leave });
 });
 
@@ -76,6 +78,7 @@ const cancelLeave = asyncHandler(async (req, res) => {
   leave.status = 'Cancelled';
   await leave.save();
   if (wasApproved) await refreshRecord(leave);
+  await notifyEvents.timeLeaveCancelled(leave, req.user, wasApproved);
   res.json({ success: true, leave });
 });
 
@@ -114,6 +117,7 @@ const reviewLeave = asyncHandler(async (req, res) => {
   leave.reviewedAt = new Date();
   await leave.save();
   if (status === 'Approved') await refreshRecord(leave);
+  await notifyEvents.timeLeaveReviewed(leave, req.user);
   res.json({ success: true, leave });
 });
 

@@ -23,6 +23,7 @@ const {
 const { applyPeriods, editView } = require('../utils/attendanceEdit');
 const { departureLeave } = require('../utils/timeLeave');
 const { encryptPrint, isFaceTaken, verifyFace } = require('../utils/faceData');
+const notifyEvents = require('../utils/notifyEvents');
 
 const todayStr = todayLocal;
 // A year of days is the most one screen asks for
@@ -98,10 +99,14 @@ const punchIn = asyncHandler(async (req, res) => {
 
   sessions.push({ punchIn: { time: now, faceDistance, location, leave: returning?._id } });
   if (returning) returning.returnedAt = now;
+  const lateBefore = record.lateMinutes || 0;
   recalcDay(record, leaves);
   record.autoCloseAt = autoCloseTime(record, now, leaves);
   await record.save();
   if (returning) await TimeLeave.updateOne({ _id: returning._id }, { $set: { returnedAt: now } });
+  // Lateness this check-in added (by the existing rules): the manager hears of it
+  const lateBy = (record.lateMinutes || 0) - lateBefore;
+  if (lateBy > 0) await notifyEvents.lateArrival(record, req.user, lateBy, now, { returning: !!returning });
 
   res.status(201).json({ success: true, attendance: record, returnedFrom: returning || null });
 });
@@ -156,6 +161,7 @@ const punchOut = asyncHandler(async (req, res) => {
     throw err;
   }
   if (leave) await TimeLeave.updateOne({ _id: leave._id }, { $set: { departedAt: now } });
+  if (overtime) await notifyEvents.overtimeRequested(overtime, req.user, { auto: true });
 
   res.json({ success: true, attendance: record, overtime, leave: leave || null });
 });
@@ -325,6 +331,7 @@ const editAttendancePeriods = asyncHandler(async (req, res) => {
   await refreshDay(record); // approved time leaves of that day
   await record.save();
   logger.info(`${req.user.email} corrected the times of ${record.user?.email}@${record.date}: ${req.body.reason}`);
+  await notifyEvents.attendanceEdited(record, req.user, { reason: req.body.reason });
   res.json({ success: true, attendance: editView(record) });
 });
 
@@ -343,6 +350,7 @@ const addManualAttendance = asyncHandler(async (req, res) => {
   await refreshDay(record);
   await record.save();
   logger.info(`${req.user.email} added attendance for ${user.email}@${date}: ${reason}`);
+  await notifyEvents.attendanceEdited(record, req.user, { manual: true, reason });
   res.status(201).json({ success: true, attendance: editView(record) });
 });
 

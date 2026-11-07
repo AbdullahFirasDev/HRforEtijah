@@ -9,7 +9,9 @@
     "dev": "nodemon server.js",
     "seed": "node utils/seed.js",
     "seed:clear": "node utils/new_seed.js",
-    "reset-device": "node utils/resetDevice.js"
+    "reset-device": "node utils/resetDevice.js",
+    "notifications:migrate": "node utils/notificationsMigrate.js",
+    "vapid-keys": "node utils/vapidKeys.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -22,6 +24,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.6.0",
     "morgan": "^1.10.0",
+    "web-push": "3.6.7",
     "winston": "^3.14.2"
   },
   "devDependencies": {

@@ -5,6 +5,8 @@ import { logout, selectSessionExpiresAt } from '../features/auth/authSlice';
 import { roleLabel } from '../utils/labels';
 import { formatTime } from '../utils/format';
 import { getInstallPrompt, promptInstall, subscribeInstall } from '../utils/installPrompt';
+import { useDeletePushSubscriptionMutation } from '../features/api/notificationApi';
+import { stopPushOnSignOut } from '../utils/push';
 import { IconChevronDown, IconDownload, IconLogout } from './icons';
 
 // Skips the Arabic article "ال" (الكناني -> ك) and joins with a zero-width
@@ -24,6 +26,7 @@ export default function ProfileMenu({ user }) {
   const navigate = useNavigate();
   const expiresAt = useSelector(selectSessionExpiresAt);
   const canInstall = !!useSyncExternalStore(subscribeInstall, getInstallPrompt);
+  const [removePush] = useDeletePushSubscriptionMutation();
 
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -33,8 +36,12 @@ export default function ProfileMenu({ user }) {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  // App clears the cached API data when the session ends.
-  const handleLogout = () => {
+  // App clears the cached API data when the session ends. Signing out on
+  // purpose also stops this user's push messages on this device (they
+  // resume if the same user signs in again).
+  const handleLogout = async () => {
+    setOpen(false);
+    await stopPushOnSignOut(removePush);
     dispatch(logout());
     navigate('/login');
   };

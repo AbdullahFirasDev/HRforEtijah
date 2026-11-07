@@ -36,6 +36,9 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,
+        // Push messages (public/push-sw.js), added to the generated worker
+        // rather than replacing it
+        importScripts: ['/push-sw.js'],
         runtimeCaching: [
           {
             // Face models are large and never change: download them once

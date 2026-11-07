@@ -1,6 +1,7 @@
 import { useSelector } from 'react-redux';
 import { selectCurrentUser } from '../features/auth/authSlice';
 import ProfileMenu from './ProfileMenu';
+import NotificationBell from './NotificationBell';
 import { IconMenu } from './icons';
 
 export default function Header({ onToggleSidebar }) {
@@ -21,6 +22,7 @@ export default function Header({ onToggleSidebar }) {
         </span>
       </div>
       <div className="app-header-spacer" />
+      <NotificationBell />
       <ProfileMenu user={user} />
     </header>
   );

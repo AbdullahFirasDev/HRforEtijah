@@ -4,6 +4,7 @@ const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { todayLocal } = require('../utils/dateUtils');
+const notifyEvents = require('../utils/notifyEvents');
 
 const todayStr = todayLocal;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -47,6 +48,7 @@ const requestOvertime = asyncHandler(async (req, res) => {
   attendance.overtimeRequested = true;
   attendance.overtime = overtime._id;
   await attendance.save();
+  await notifyEvents.overtimeRequested(overtime, req.user);
 
   res.status(201).json({ success: true, overtime });
 });
@@ -180,6 +182,7 @@ const reviewOvertime = asyncHandler(async (req, res) => {
   overtime.reviewedBy = req.user._id;
   overtime.reviewedAt = new Date();
   await overtime.save();
+  await notifyEvents.overtimeReviewed(overtime, req.user);
 
   res.json({ success: true, overtime });
 });
