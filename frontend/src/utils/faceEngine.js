@@ -1,63 +1,275 @@
-// Face detection and face prints, computed entirely in the browser: no image
-// leaves the device. The library and its models are large, so they load only
-// when a face check starts.
+// Face detection and face prints, computed entirely on the device: no image
+// leaves it. This module decides where the models run and keeps them ready:
+//   1. a Web Worker on the GPU (WebGL), so the page never freezes;
+//   2. the page itself on the GPU, where a worker can't use it (Safari/iOS);
+//   3. WebAssembly on the CPU (worker first) when there is no WebGL at all.
+// The models load once and are reused for every check until they sit unused.
 
-const MODELS_URL = '/models';
-const DETECTOR_INPUT = 320;
-const MIN_DETECTION_SCORE = 0.5;
+const INIT_TIMEOUT_MS = 120000; // first start on a slow connection downloads ~8 MB
+const READ_TIMEOUT_MS = 15000; // one frame; longer means the GPU or worker is stuck
+const IDLE_RELEASE_MS = 5 * 60 * 1000;
 
-const detectorOptions = (faceapi) =>
-  new faceapi.TinyFaceDetectorOptions({ inputSize: DETECTOR_INPUT, scoreThreshold: MIN_DETECTION_SCORE });
+export class FaceEngineStalled extends Error {}
 
-let engine = null;
+// Safari and every iOS browser (all WebKit): tfjs keeps WebGL out of workers
+// there, and a worker without the GPU would be slower than the page with it
+const isWebKit = () => /Apple/.test(navigator.vendor || '');
 
-export const loadFaceEngine = () => {
+const workerSupported = () =>
+  typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap === 'function' && !isWebKit();
+
+const pageHasWebgl = () => {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return !!gl;
+  } catch {
+    return false;
+  }
+};
+
+// One reused canvas holds the frame being analysed. It is drawn exactly as
+// face-api draws a <video> (CPU-backed 2D canvas at the camera's own size), so
+// prints are unchanged from before; it is cleared when a check ends.
+let frameCanvas = null;
+let frameContext = null;
+
+const grabFrame = (video) => {
+  const { videoWidth: width, videoHeight: height } = video;
+  frameCanvas ??= document.createElement('canvas');
+  if (frameCanvas.width !== width || frameCanvas.height !== height) {
+    frameCanvas.width = width;
+    frameCanvas.height = height;
+  }
+  frameContext ??= frameCanvas.getContext('2d', { willReadFrequently: true });
+  frameContext.drawImage(video, 0, 0, width, height);
+  return frameCanvas;
+};
+
+export const clearFrame = () => {
+  if (frameCanvas) frameCanvas.width = frameCanvas.height = 0;
+};
+
+const startWorker = (backends) =>
+  new Promise((resolve, reject) => {
+    let worker;
+    try {
+      worker = new Worker(new URL('./faceWorker.js', import.meta.url), { type: 'module' });
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    const pending = new Map();
+    let seq = 0;
+    let dead = null;
+    const kill = (err) => {
+      if (dead) return;
+      dead = err;
+      worker.terminate();
+      pending.forEach(({ fail, timer }) => {
+        clearTimeout(timer);
+        fail(err);
+      });
+      pending.clear();
+    };
+    worker.onmessage = ({ data }) => {
+      const call = pending.get(data.id);
+      if (!call) return;
+      pending.delete(data.id);
+      clearTimeout(call.timer);
+      if (data.ok) call.done(data);
+      else call.fail(new Error(data.error));
+    };
+    worker.onerror = (event) => {
+      event.preventDefault?.();
+      kill(new Error('face worker failed'));
+    };
+    worker.onmessageerror = () => kill(new Error('face worker message failed'));
+
+    const send = (message, transfer, timeoutMs) =>
+      new Promise((done, fail) => {
+        if (dead) {
+          fail(dead);
+          return;
+        }
+        const id = ++seq;
+        try {
+          worker.postMessage({ ...message, id }, transfer);
+        } catch (err) {
+          fail(err);
+          return;
+        }
+        const timer = setTimeout(() => kill(new FaceEngineStalled('face worker stopped responding')), timeoutMs);
+        pending.set(id, { done, fail, timer });
+      });
+
+    send({ type: 'init', backends }, [], INIT_TIMEOUT_MS).then(
+      ({ backend }) =>
+        resolve({
+          where: 'worker',
+          backend,
+          get broken() {
+            return !!dead;
+          },
+          async read(canvas, printWhen) {
+            const bitmap = await createImageBitmap(canvas);
+            try {
+              return (await send({ type: 'read', bitmap, printWhen }, [bitmap], READ_TIMEOUT_MS)).face;
+            } finally {
+              bitmap.close(); // no-op once handed to the worker
+            }
+          },
+          dispose: () => kill(new Error('face engine released')),
+        }),
+      (err) => {
+        kill(err);
+        reject(err);
+      }
+    );
+  });
+
+const startPage = async (backends) => {
+  const core = await import('./faceCore');
+  const { backend } = await core.prepareFaceModels({ backends });
+  let broken = false;
+  return {
+    where: 'page',
+    backend,
+    get broken() {
+      return broken;
+    },
+    async read(canvas, printWhen) {
+      let timer;
+      const stalled = new Promise((_, fail) => {
+        timer = setTimeout(() => fail(new FaceEngineStalled('face models stopped responding')), READ_TIMEOUT_MS);
+      });
+      try {
+        return await Promise.race([core.readFaceFrom(canvas, printWhen), stalled]);
+      } catch (err) {
+        broken = true;
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    dispose: () => {}, // the page keeps its models; they can't be unloaded
+  };
+};
+
+const plans = ({ preload }) => {
+  const list = [];
+  const worker = workerSupported();
+  if (worker) list.push(() => startWorker(['webgl']));
+  // Loading on the page freezes it for a moment, so never in the background
+  if (preload) return list;
+  if (pageHasWebgl()) list.push(() => startPage(['webgl']));
+  if (worker) list.push(() => startWorker(['wasm']));
+  list.push(() => startPage(['wasm', 'cpu']));
+  return list;
+};
+
+const start = async (options) => {
+  let lastError = new Error('no face engine available');
+  for (const plan of plans(options)) {
+    try {
+      return await plan();
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
+};
+
+let engine = null; // Promise of the engine in use
+let enginePreloaded = false; // started by preloadFaceEngine (worker only)
+let users = 0;
+let idleTimer = null;
+// One frame at a time across all checks: the frame is grabbed only once the
+// engine is free, so a result is never for an old frame
+let chain = Promise.resolve();
+
+const forget = (current) => {
+  if (engine !== current) return;
+  engine = null;
+  current.then((e) => e.dispose(), () => {});
+};
+
+const scheduleRelease = () => {
+  clearTimeout(idleTimer);
+  const current = engine;
+  idleTimer = setTimeout(() => {
+    if (!users && current) forget(current);
+  }, IDLE_RELEASE_MS);
+};
+
+const getEngine = (options = {}) => {
   if (!engine) {
-    engine = (async () => {
-      const faceapi = await import('@vladmandic/face-api');
-      await faceapi.tf.ready();
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL),
-      ]);
-      // The very first run prepares the models for the device and can take
-      // many seconds: do it now, while the "preparing" message is showing
-      const blank = document.createElement('canvas');
-      blank.width = blank.height = 150;
-      await faceapi.nets.tinyFaceDetector.locateFaces(blank, detectorOptions(faceapi));
-      await faceapi.nets.faceLandmark68Net.detectLandmarks(blank);
-      await faceapi.nets.faceRecognitionNet.computeFaceDescriptor(blank);
-      return faceapi;
-    })().catch((err) => {
-      engine = null; // let the next attempt retry the download
-      throw err;
+    const current = start(options);
+    engine = current;
+    enginePreloaded = !!options.preload;
+    current.catch(() => {
+      if (engine === current) engine = null; // the next check starts again
     });
   }
   return engine;
 };
 
-// How far the head is turned: where the nose sits between the two sides of the
-// jaw, 0.5 when facing the camera. A flat picture hardly changes this when
-// moved, which is what makes turning the head a check for a real person.
-const headTurn = (landmarks) => {
-  const points = landmarks.positions;
-  const [left, right, nose] = [points[0], points[16], points[30]];
-  return (nose.x - left.x) / (right.x - left.x);
+// Starts the models in the background (worker only) so the first check
+// doesn't wait for them. Errors are left for the check itself to report.
+export const preloadFaceEngine = () => {
+  if (engine || !workerSupported() || navigator.connection?.saveData) return;
+  getEngine({ preload: true }).catch(() => {});
+  scheduleRelease();
 };
 
-// Looks at the current frame: how many faces, how large and turned the single
-// face is and, when asked (it is slower), its 128-number print.
-export const readFace = async (video, { withPrint = false } = {}) => {
-  const faceapi = await loadFaceEngine();
-  const found = faceapi.detectAllFaces(video, detectorOptions(faceapi)).withFaceLandmarks();
-  const faces = withPrint ? await found.withFaceDescriptors() : await found;
-  if (faces.length !== 1) return { count: faces.length };
-  const [face] = faces;
+// For one face check: the ready engine, with read(video, printWhen) that
+// analyses the current frame. Call release() when the check ends.
+export const openFaceEngine = async () => {
+  clearTimeout(idleTimer);
+  users++;
+  let current = getEngine();
+  const preloaded = enginePreloaded;
+  let ready;
+  try {
+    ready = await current.catch((err) => {
+      // The background start only tries the worker: now try everything
+      if (!preloaded) throw err;
+      current = getEngine();
+      return current;
+    });
+    if (ready.broken) {
+      forget(current);
+      current = getEngine();
+      ready = await current;
+    }
+  } catch (err) {
+    users--;
+    throw err;
+  }
+  let released = false;
   return {
-    count: 1,
-    size: face.detection.box.width / video.videoWidth,
-    turn: headTurn(face.landmarks),
-    print: face.descriptor ? Array.from(face.descriptor) : null,
+    where: ready.where,
+    backend: ready.backend,
+    read(video, printWhen) {
+      if (released) return Promise.reject(new Error('face engine released'));
+      const run = chain.then(() => ready.read(grabFrame(video), printWhen));
+      chain = run.catch(() => {});
+      run.catch(() => {
+        if (ready.broken) forget(current);
+      });
+      return run;
+    },
+    release() {
+      if (released) return;
+      released = true;
+      users--;
+      if (users) return;
+      // After any frame still being analysed, so it isn't read half-cleared
+      chain = chain.then(() => {
+        if (!users) clearFrame();
+      });
+      scheduleRelease();
+    },
   };
 };

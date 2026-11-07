@@ -6,6 +6,7 @@ import PageHeader from '../components/PageHeader';
 import Alert from '../components/Alert';
 import Loading from '../components/Loading';
 import useGeolocation from '../utils/useGeolocation';
+import { preloadFaceEngine } from '../utils/faceEngine';
 import { formatClock, formatClockTime, formatDateLong, formatHours, formatMinutes, formatTime, formatTimer } from '../utils/format';
 import { isExtended, openSessionOf, periodHours, sessionsOf } from '../utils/attendance';
 import { shiftsText, weekLines } from '../utils/workSchedule';
@@ -80,6 +81,13 @@ export default function EmployeeDashboard() {
     const id = setInterval(() => setNow(Date.now()), extraFrom ? 1000 : 30000);
     return () => clearInterval(id);
   }, [ticking, !!extraFrom]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Starts the face models in the background while the employee reads the
+  // page, so the check doesn't wait for them (only where they run in a worker)
+  const faceCheckAhead = !!today && (!today.faceEnrolled || isWorking || canPunchIn);
+  useEffect(() => {
+    if (faceCheckAhead) preloadFaceEngine();
+  }, [faceCheckAhead]);
 
   const dismissMissed = () => {
     const next = [...dismissed, ...missed.map((m) => String(m.id))];

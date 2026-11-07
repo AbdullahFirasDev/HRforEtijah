@@ -30,6 +30,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'],
+        // Each device uses only one copy of the face engine (worker or page),
+        // so neither is downloaded at install; see 'face-engine' below
+        globIgnores: ['**/assets/faceCore-*.js', '**/assets/faceWorker-*.js'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,
@@ -39,6 +42,13 @@ export default defineConfig({
             urlPattern: ({ url }) => url.pathname.startsWith('/models/'),
             handler: 'CacheFirst',
             options: { cacheName: 'face-models', expiration: { maxEntries: 10 } },
+          },
+          {
+            // The face engine and its WebAssembly fallback, kept after first
+            // use; hashed or versioned names, so a cached copy is never stale
+            urlPattern: ({ url }) => /^\/assets\/face(Core|Worker)-/.test(url.pathname) || url.pathname.startsWith('/tfjs-wasm/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'face-engine', expiration: { maxEntries: 8 } },
           },
           {
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com',
@@ -58,6 +68,9 @@ export default defineConfig({
       },
     }),
   ],
+  // The face worker (src/utils/faceWorker.js) is an ES module, so its face-api
+  // chunk can load lazily like on the page
+  worker: { format: 'es' },
   server: {
     port: 5173,
     // Mirrors the /api rewrite in the root vercel.json for plain `npm run dev`.

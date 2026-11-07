@@ -981,21 +981,20 @@ tbody tr:hover td {
   display: block;
   width: 100%;
 }
-/* The canvas is the preview; the video only feeds it (see CameraCapture) */
+/* The preview is the <video> itself: the browser keeps it playing smoothly
+   even while a frame is being analysed (see FaceCapture) */
 .camera-live {
   position: relative;
   min-height: 200px;
 }
+/* Flipped on screen only, so the employee sees themselves as in a mirror;
+   the frames that are analysed are never flipped */
 .camera-live video {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  opacity: 0;
-}
-/* Flipped on screen only, so the employee sees themselves as in a mirror */
-.camera-live canvas {
-  position: relative;
   transform: scaleX(-1);
+}
+/* The camera is off after an error until "retry" */
+.camera-live.is-off {
+  display: none;
 }
 .face-guide {
   position: absolute;
