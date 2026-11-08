@@ -40,4 +40,28 @@ const createUserAccount = async ({ name, email, password, role, managerId }, ext
   return User.create({ name, email, password, role: finalRole, manager, ...extra });
 };
 
-module.exports = { newUserRules, createUserAccount };
+// Optional HR details (admin only): employee number, department, job title.
+// An empty value removes the detail.
+const PROFILE_FIELDS = { employeeNumber: 40, department: 80, jobTitle: 80 };
+const PROFILE_LABELS = { employeeNumber: 'الرقم الوظيفي', department: 'القسم', jobTitle: 'المسمى الوظيفي' };
+
+const profileRules = Object.entries(PROFILE_FIELDS).map(([field, max]) =>
+  body(field, `${PROFILE_LABELS[field]}: ${max} حرفاً كحد أقصى`).optional({ values: 'null' }).isString().trim().isLength({ max })
+);
+
+// The details present in a request body, and a clash with another account's number
+const profileFrom = async (bodyIn, exceptId = null) => {
+  const out = {};
+  for (const field of Object.keys(PROFILE_FIELDS)) {
+    if (bodyIn[field] === undefined) continue;
+    out[field] = bodyIn[field] === null ? undefined : String(bodyIn[field]).trim() || undefined;
+  }
+  if (out.employeeNumber) {
+    const re = new RegExp(`^${out.employeeNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    const taken = await User.findOne({ employeeNumber: re, ...(exceptId && { _id: { $ne: exceptId } }) }).select('name').lean();
+    if (taken) throw new ApiError(409, `الرقم الوظيفي ${out.employeeNumber} مستخدم لحساب ${taken.name}`);
+  }
+  return out;
+};
+
+module.exports = { newUserRules, createUserAccount, profileRules, profileFrom };

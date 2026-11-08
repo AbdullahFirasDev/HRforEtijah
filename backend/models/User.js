@@ -31,6 +31,11 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     isActive: { type: Boolean, default: true },
+    // Optional HR details an admin fills in (shown on leave requests and
+    // reports). Absent on accounts created before they existed.
+    employeeNumber: { type: String, trim: true, maxlength: 40 },
+    department: { type: String, trim: true, maxlength: 80 },
+    jobTitle: { type: String, trim: true, maxlength: 80 },
     // The one device allowed to sign in (see utils/device.js). Set on the
     // first sign-in; an admin can reset it when the employee changes phone.
     deviceIdHash: { type: String, default: null, select: false },
@@ -81,6 +86,9 @@ userSchema.methods.toSafeObject = function () {
     role: this.role,
     manager: this.manager,
     isActive: this.isActive,
+    employeeNumber: this.employeeNumber || null,
+    department: this.department || null,
+    jobTitle: this.jobTitle || null,
     device: this.deviceRegisteredAt ? { label: this.deviceLabel, registeredAt: this.deviceRegisteredAt } : null,
     faceEnrolledAt: this.faceEnrolledAt || null,
     workSchedule: { days: weeklyHours(this) },

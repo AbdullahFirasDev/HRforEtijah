@@ -1,4 +1,5 @@
 const logger = require('../config/logger');
+const ApiError = require('../utils/ApiError');
 
 const notFound = (req, res, next) => {
   res.status(404);
@@ -39,7 +40,10 @@ const errorHandler = (err, req, res, next) => {
       .join(', ');
   }
 
-  if (statusCode >= 500) {
+  // A feature that isn't set up yet answers 503 with a message written for the user
+  if (statusCode === 503 && err instanceof ApiError) {
+    logger.warn(`${req.method} ${req.originalUrl} - ${message}`);
+  } else if (statusCode >= 500) {
     logger.error(`${req.method} ${req.originalUrl} - ${err.stack || err.message}`);
     // Internal details (e.g. "connect ECONNREFUSED ...") stay in the log, not on screen
     message = 'تعذر إتمام الطلب بسبب مشكلة في الخادم. حاول مرة أخرى بعد قليل، وإن تكررت المشكلة فتواصل مع مسؤول النظام.';

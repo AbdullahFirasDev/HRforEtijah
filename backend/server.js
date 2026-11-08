@@ -20,6 +20,7 @@ const timesheetRoutes = require('./routes/timesheetRoutes');
 const timeLeaveRoutes = require('./routes/timeLeaveRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const leaveRoutes = require('./routes/leaveRoutes');
 const { startSweepTimer } = require('./utils/notificationSweep');
 
 connectDB();
@@ -98,6 +99,7 @@ app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/time-leaves', timeLeaveRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/leaves', leaveRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

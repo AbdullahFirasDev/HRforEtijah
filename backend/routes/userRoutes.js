@@ -13,7 +13,7 @@ const {
 const { body } = require('express-validator');
 const { protect, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
-const { newUserRules } = require('../utils/userAccount');
+const { newUserRules, profileRules } = require('../utils/userAccount');
 const { workSettingsRules } = require('../utils/schedule');
 
 const router = express.Router();
@@ -24,12 +24,12 @@ router.get('/managers', getManagersList);
 router.use(protect);
 
 router.get('/', authorize('admin'), getAllUsers);
-router.post('/', authorize('admin'), [...newUserRules, ...workSettingsRules], validate, createUser);
+router.post('/', authorize('admin'), [...newUserRules, ...workSettingsRules, ...profileRules], validate, createUser);
 router.get('/team', authorize('manager', 'admin'), getMyTeam);
 router.patch(
   '/:id',
   authorize('admin'),
-  [...workSettingsRules, body('applyFrom', 'تاريخ تطبيق الدوام غير صحيح').optional({ values: 'falsy' }).matches(/^\d{4}-\d{2}-\d{2}$/)],
+  [...workSettingsRules, ...profileRules, body('applyFrom', 'تاريخ تطبيق الدوام غير صحيح').optional({ values: 'falsy' }).matches(/^\d{4}-\d{2}-\d{2}$/)],
   validate,
   updateUser
 );

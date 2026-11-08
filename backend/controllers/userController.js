@@ -3,9 +3,12 @@ const Attendance = require('../models/Attendance');
 const Overtime = require('../models/Overtime');
 const TimeLeave = require('../models/TimeLeave');
 const Message = require('../models/Message');
+const LeaveRequest = require('../models/LeaveRequest');
+const LeaveAttachment = require('../models/LeaveAttachment');
+const LeaveBalanceEntry = require('../models/LeaveBalanceEntry');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { createUserAccount } = require('../utils/userAccount');
+const { createUserAccount, profileFrom } = require('../utils/userAccount');
 const { weeklyHours, workSettingsFrom } = require('../utils/schedule');
 const { reapplySchedule } = require('../utils/attendanceDay');
 const { todayLocal } = require('../utils/dateUtils');
@@ -36,7 +39,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
 // @route POST /api/users
 // @access Private (admin)
 const createUser = asyncHandler(async (req, res) => {
-  const user = await createUserAccount(req.body, workSettingsFrom(req.body));
+  const user = await createUserAccount(req.body, { ...workSettingsFrom(req.body), ...(await profileFrom(req.body)) });
   res.status(201).json({ success: true, user: user.toSafeObject() });
 });
 
@@ -57,7 +60,8 @@ const getMyTeam = asyncHandler(async (req, res) => {
 });
 
 // @desc  Admin updates a user's role, manager assignment, active state,
-//        working hours, days off, or the multiple check-in exception
+//        working hours, days off, the multiple check-in exception, or HR
+//        details (employee number, department, job title)
 // @route PATCH /api/users/:id
 // @access Private (admin)
 const updateUser = asyncHandler(async (req, res) => {
@@ -75,6 +79,7 @@ const updateUser = asyncHandler(async (req, res) => {
   if (managerId !== undefined) user.manager = managerId || null;
   if (isActive !== undefined) user.isActive = isActive;
   user.set(workSettingsFrom(req.body));
+  for (const [field, value] of Object.entries(await profileFrom(req.body, user._id))) user.set(field, value);
 
   await user.save();
   // Optionally recalculate already recorded days on the new schedule
@@ -155,10 +160,16 @@ const deleteUser = asyncHandler(async (req, res) => {
   const overtime = await Overtime.deleteMany({ user: user._id });
   const attendance = await Attendance.deleteMany({ user: user._id });
   await TimeLeave.deleteMany({ user: user._id });
+  // Leave requests, their files and balance lines (no-ops before the leave section is set up)
+  await LeaveRequest.deleteMany({ user: user._id });
+  await LeaveAttachment.deleteMany({ owner: user._id });
+  await LeaveBalanceEntry.deleteMany({ user: user._id });
   await Message.updateMany({}, { $pull: { recipients: user._id, reads: { user: user._id } } });
   // Records this user reviewed stay, without pointing at a deleted account
   await Overtime.updateMany({ reviewedBy: user._id }, { $set: { reviewedBy: null } });
   await TimeLeave.updateMany({ reviewedBy: user._id }, { $set: { reviewedBy: null } });
+  // Leave decisions keep the reviewer's name as written then
+  await LeaveRequest.updateMany({ reviewedBy: user._id }, { $set: { reviewedBy: null } });
   await notifyEvents.userDeleted(user._id);
   await user.deleteOne();
 

@@ -104,6 +104,70 @@ const timeLeaveReviewed = (leave, reviewer) =>
     })
   );
 
+// ----- Leave requests (إجازات) -----
+// The reason is never in the text: it may be medical or private. The details
+// are in the request, which only the people allowed to see it can open.
+
+const leaveDaysText = (n) => (n === 1 ? 'يوم واحد' : n === 2 ? 'يومان' : n <= 10 ? `${n} أيام` : `${n} يوماً`);
+const leaveRequestDetails = (r) =>
+  r.startDate === r.endDate
+    ? `${r.typeName} يوم ${dayText(r.startDate)} (${leaveDaysText(r.days)}). رقم الطلب ${r.number}.`
+    : `${r.typeName} من ${dayText(r.startDate)} إلى ${dayText(r.endDate)} (${leaveDaysText(r.days)}). رقم الطلب ${r.number}.`;
+const leaveLink = (r) => (u) => `/${u.role}/leaves?request=${r._id}`;
+
+const leaveRequested = (request, employee) =>
+  safely(async () =>
+    notify({
+      to: await reviewersOf(employee),
+      type: 'leave.requested',
+      key: `leave.requested:${request._id}`,
+      title: `طلب إجازة من ${employee.name}`,
+      body: leaveRequestDetails(request),
+      link: leaveLink(request),
+      actor: employee._id,
+    })
+  );
+
+const leaveCancelled = (request, employee, wasApproved) =>
+  safely(async () =>
+    notify({
+      to: await reviewersOf(employee),
+      type: 'leave.cancelled',
+      key: `leave.cancelled:${request._id}`,
+      title: `ألغى ${employee.name} ${wasApproved ? 'إجازة مقبولة' : 'طلب إجازة'}`,
+      body: leaveRequestDetails(request),
+      link: leaveLink(request),
+      actor: employee._id,
+    })
+  );
+
+const leaveReviewed = (request, reviewer) =>
+  safely(() =>
+    notify({
+      to: [idOf(request.user)],
+      type: 'leave.reviewed',
+      key: `leave.reviewed:${request._id}`,
+      title: request.status === 'Approved' ? 'قُبل طلب إجازتك' : 'رُفض طلب إجازتك',
+      body: leaveRequestDetails(request) + remarksText(request.reviewRemarks, reviewer),
+      link: `/employee/leaves?request=${request._id}`,
+      actor: reviewer._id,
+    })
+  );
+
+// An admin cancelled a leave that was already approved
+const leaveRevoked = (request, admin) =>
+  safely(() =>
+    notify({
+      to: [idOf(request.user)],
+      type: 'leave.revoked',
+      key: `leave.revoked:${request._id}`,
+      title: 'أُلغيت إجازتك المقبولة',
+      body: `${leaveRequestDetails(request)} السبب: ${clip(request.cancelReason)}`,
+      link: `/employee/leaves?request=${request._id}`,
+      actor: admin._id,
+    })
+  );
+
 // ----- Overtime -----
 
 const overtimeRequested = (overtime, employee, { auto = false } = {}) =>
@@ -266,6 +330,10 @@ module.exports = {
   timeLeaveRequested,
   timeLeaveCancelled,
   timeLeaveReviewed,
+  leaveRequested,
+  leaveCancelled,
+  leaveReviewed,
+  leaveRevoked,
   overtimeRequested,
   overtimeReviewed,
   lateArrival,
