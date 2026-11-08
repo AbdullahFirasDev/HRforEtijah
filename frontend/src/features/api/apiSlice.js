@@ -45,6 +45,9 @@ export const apiSlice = createApi({
     'Notification',
     'NotificationCount',
     'NotificationSettings',
+    'Leave',
+    'LeaveType',
+    'LeaveBalance',
   ],
   endpoints: () => ({}),
 });

@@ -74,6 +74,15 @@ export const IconHourglass = (p) => (
   </Svg>
 );
 
+// A suitcase: days of leave
+export const IconSuitcase = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="7" width="18" height="13" rx="2" />
+    <path d="M9 7V5a1.5 1.5 0 011.5-1.5h3A1.5 1.5 0 0115 5v2" />
+    <path d="M3 12.5h18M10 12.5v2h4v-2" />
+  </Svg>
+);
+
 export const IconMapPin = (p) => (
   <Svg {...p}>
     <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0113 0c0 5.4-6.5 11-6.5 11z" />

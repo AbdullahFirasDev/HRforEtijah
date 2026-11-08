@@ -25,6 +25,9 @@ import TimeLeaves from './pages/TimeLeaves';
 import TimeLeaveApprovals from './pages/TimeLeaveApprovals';
 import AdminMessages from './pages/AdminMessages';
 import Notifications from './pages/Notifications';
+import MyLeaves from './pages/MyLeaves';
+import LeaveManagement from './pages/LeaveManagement';
+import { LeaveReportPrint, LeaveRequestPrint, LeaveStatementPrint } from './pages/LeavePrint';
 
 function withLayout(Component) {
   return (
@@ -74,6 +77,7 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/employee/history" element={withLayout(AttendanceHistory)} />
         <Route path="/employee/timesheet" element={withLayout(Timesheets)} />
         <Route path="/employee/time-leaves" element={withLayout(TimeLeaves)} />
+        <Route path="/employee/leaves" element={withLayout(MyLeaves)} />
         <Route path="/employee/overtime" element={withLayout(OvertimeRequests)} />
         <Route path="/employee/reports" element={withLayout(Reports)} />
         <Route path="/employee/notifications" element={withLayout(Notifications)} />
@@ -84,6 +88,7 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/manager" element={withLayout(TeamAttendance)} />
         <Route path="/manager/timesheet" element={withLayout(Timesheets)} />
         <Route path="/manager/time-leaves" element={withLayout(TimeLeaveApprovals)} />
+        <Route path="/manager/leaves" element={withLayout(LeaveManagement)} />
         <Route path="/manager/overtime" element={withLayout(OvertimeApprovals)} />
         <Route path="/manager/reports" element={withLayout(Reports)} />
         <Route path="/manager/notifications" element={withLayout(Notifications)} />
@@ -95,11 +100,19 @@ function AppRoutes({ user, loggedIn }) {
         <Route path="/admin/attendance" element={withLayout(AdminAttendance)} />
         <Route path="/admin/timesheet" element={withLayout(Timesheets)} />
         <Route path="/admin/time-leaves" element={withLayout(TimeLeaveApprovals)} />
+        <Route path="/admin/leaves" element={withLayout(LeaveManagement)} />
         <Route path="/admin/overtime" element={withLayout(OvertimeApprovals)} />
         <Route path="/admin/reports" element={withLayout(Reports)} />
         <Route path="/admin/messages" element={withLayout(AdminMessages)} />
         <Route path="/admin/geofence" element={withLayout(GeofenceSettings)} />
         <Route path="/admin/notifications" element={withLayout(Notifications)} />
+      </Route>
+
+      {/* A4 documents, without the app's menus (the server decides what each person may print) */}
+      <Route element={<ProtectedRoute allowedRoles={['employee', 'manager', 'admin']} />}>
+        <Route path="/print/leave/:id" element={<LeaveRequestPrint />} />
+        <Route path="/print/leave-statement" element={<LeaveStatementPrint />} />
+        <Route path="/print/leave-report" element={<LeaveReportPrint />} />
       </Route>
 
       <Route

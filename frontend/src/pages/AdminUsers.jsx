@@ -68,6 +68,20 @@ export default function AdminUsers() {
     { key: 'name', label: 'الاسم', value: (u) => u.name },
     { key: 'email', label: 'البريد الإلكتروني', value: (u) => u.email, render: (u) => <span dir="ltr">{u.email}</span> },
     {
+      key: 'department',
+      label: 'القسم',
+      value: (u) => [u.department, u.employeeNumber].filter(Boolean).join(' ') || '-',
+      render: (u) =>
+        u.department || u.employeeNumber ? (
+          <span className="cell-stack">
+            <strong>{u.department || '-'}</strong>
+            {u.employeeNumber && <small>رقم {u.employeeNumber}</small>}
+          </span>
+        ) : (
+          '-'
+        ),
+    },
+    {
       key: 'role',
       label: 'الدور',
       value: (u) => roleLabel(u.role),

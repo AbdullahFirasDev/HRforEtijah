@@ -2841,3 +2841,305 @@ button.notif-item.is-unread:hover {
   font-weight: 700;
   color: var(--blue-dark);
 }
+
+/* =========================================================================
+   Leave requests (الإجازات)
+   ========================================================================= */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.pre-line {
+  white-space: pre-line;
+}
+.text-danger {
+  color: var(--brick-dark);
+}
+.section-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+.leave-year-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.leave-year-bar select {
+  width: auto;
+}
+.leave-form-card {
+  max-width: 640px;
+}
+.choice-cards-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.form-row-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: var(--space-4);
+}
+
+/* The live day count under the dates */
+.leave-count {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-3) 0 var(--space-4);
+  padding: var(--space-3);
+  font-size: 14px;
+  background: var(--blue-soft);
+  border: 1.5px solid var(--blue);
+  border-radius: var(--radius-sm);
+}
+.leave-count small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.leave-count-days strong {
+  font-size: 17px;
+  color: var(--blue-dark);
+}
+.leave-count.is-blocked {
+  background: var(--brick-soft);
+  border-color: var(--brick);
+}
+.leave-count-warning {
+  color: var(--brick-dark);
+}
+
+/* Files */
+.file-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+.file-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--paper);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.file-kind {
+  flex: none;
+  padding: 0 var(--space-2);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--surface);
+  background: var(--ink);
+  border-radius: 4px;
+}
+.file-name {
+  flex: 1 1 140px;
+  min-width: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.file-list small {
+  color: var(--muted);
+}
+.file-list .row-actions {
+  margin-inline-start: auto;
+}
+
+/* Request details window */
+.modal-box.leave-modal {
+  max-width: 720px;
+}
+.leave-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.leave-modal-head .card-title {
+  flex: 1;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+.detail-grid > div {
+  padding: var(--space-2) var(--space-3);
+  background: var(--paper);
+  border-radius: var(--radius-sm);
+}
+.detail-grid dt {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.detail-grid dd {
+  margin: 0;
+  font-weight: 700;
+}
+.detail-grid dd small {
+  display: block;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--muted);
+}
+.leave-history {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.leave-history li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 3px solid var(--blue);
+  background: var(--paper);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.leave-history time,
+.leave-history small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.leave-history p {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 14px;
+}
+.image-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(20, 15, 10, 0.85);
+}
+.image-preview figure {
+  margin: 0;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.image-preview img {
+  max-width: 100%;
+  max-height: calc(100vh - 120px);
+  object-fit: contain;
+  background: #fff;
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.image-preview figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--surface);
+  font-weight: 700;
+}
+.image-preview figcaption span {
+  flex: 1;
+}
+.image-preview .btn-link {
+  color: var(--mustard);
+}
+
+/* Management page tabs */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  border-bottom: var(--border);
+}
+.tab {
+  position: relative;
+  bottom: -2px;
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  cursor: pointer;
+}
+.tab:hover {
+  color: var(--ink);
+  background: var(--paper-deep);
+}
+.tab.is-active {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--ink);
+  border-bottom-color: var(--surface);
+}
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  margin-bottom: var(--space-4);
+}
+.panel-head .form-note {
+  flex: 1 1 320px;
+  margin: 0;
+}
+.panel-head > .field {
+  margin-bottom: 0;
+  min-width: 140px;
+}
+.leave-filters > .field {
+  flex: 1 1 160px;
+}
+.bulk-grant {
+  margin-bottom: var(--space-2);
+  box-shadow: none;
+  border-style: dashed;
+}
+.is-refreshing {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.leave-report-grid > .card {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .detail-grid,
+  .choice-cards-2,
+  .form-row-3 {
+    grid-template-columns: 1fr;
+  }
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .tab {
+    flex: none;
+    padding: 0 var(--space-3);
+    font-size: 14px;
+  }
+}

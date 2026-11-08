@@ -1,0 +1,462 @@
+/* =========================================================================
+   Printable A4 documents: leave request, employee statement, period report.
+   On screen: a toolbar and a white A4 sheet to preview. On paper: only the
+   sheet, with the page margins and page numbers set by @page (in
+   pages/LeavePrint.jsx). Sizes are in mm/pt so the preview matches the print.
+   ========================================================================= */
+
+.print-page {
+  --doc-ink: #1d1712;
+  --doc-muted: #6a5d4d;
+  --doc-line: #ddd1b8;
+  --doc-line-strong: #c9b991;
+  --doc-blue: #0b63a8;
+  --doc-blue-ink: #0a3a63;
+  --doc-band: #edf3f9;
+  min-height: 100vh;
+  padding-bottom: 48px;
+  background: #d6ccb6;
+}
+
+.print-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border-bottom: var(--border);
+  box-shadow: 0 3px 0 var(--ink);
+}
+.print-toolbar p {
+  flex: 1 1 280px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.print-error {
+  max-width: 600px;
+  margin: 32px auto;
+  padding: var(--space-4);
+  font-weight: 700;
+  color: var(--brick-dark);
+  background: var(--brick-soft);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.print-sheet {
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 24px auto 0;
+  padding: 12mm 12mm 14mm;
+  color: var(--doc-ink);
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+}
+.print-sheet * {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ---------- Header ---------- */
+.doc-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6mm;
+  padding-bottom: 3mm;
+  margin-bottom: 1.5mm;
+}
+.doc-head::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1.5mm;
+  height: 1.6mm;
+  background: var(--stripes);
+}
+.doc-brand {
+  display: flex;
+  align-items: center;
+  gap: 3.5mm;
+}
+.doc-brand img {
+  display: block;
+  width: auto;
+  height: 15mm;
+}
+.doc-brand strong {
+  display: block;
+  font-size: 14pt;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.doc-brand span {
+  font-size: 9pt;
+  font-weight: 600;
+  color: var(--doc-muted);
+}
+.doc-title {
+  text-align: end;
+}
+.doc-title h1 {
+  margin: 0 0 1mm;
+  font-size: 20pt;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--doc-blue);
+}
+.doc-title dl {
+  display: grid;
+  gap: 0.6mm;
+  margin: 0;
+  font-size: 9.5pt;
+}
+.doc-title dl div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2mm;
+}
+.doc-title dt {
+  color: var(--doc-muted);
+}
+.doc-title dt::after {
+  content: ':';
+}
+.doc-title dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+/* The request's status, like a rubber stamp */
+.doc-stamp {
+  --stamp: #555;
+  padding: 1.5mm 6mm;
+  font-size: 15pt;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--stamp);
+  border: 0.9mm double var(--stamp);
+  border-radius: 2.5mm;
+  transform: rotate(-6deg);
+  white-space: nowrap;
+}
+.doc-stamp.is-approved {
+  --stamp: #2f7a24;
+}
+.doc-stamp.is-rejected {
+  --stamp: #b3261e;
+}
+.doc-stamp.is-pending {
+  --stamp: #a86a0c;
+}
+.doc-stamp.is-cancelled {
+  --stamp: #6b6b6b;
+}
+
+/* ---------- Sections ---------- */
+.doc-section {
+  margin-top: 3.8mm;
+}
+.doc-section h2 {
+  margin: 0 0 2mm;
+  padding: 0.8mm 3mm;
+  font-size: 10.5pt;
+  font-weight: 800;
+  line-height: 1.4;
+  color: var(--doc-blue-ink);
+  background: var(--doc-band);
+  border-inline-start: 1.4mm solid var(--doc-blue);
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.doc-keep,
+.doc-signatures,
+.doc-end {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Label/value boxes; the 0.6pt gap draws the lines between cells */
+.doc-info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8pt;
+  margin: 0;
+  overflow: hidden;
+  background: var(--doc-line);
+  border: 0.8pt solid var(--doc-line-strong);
+  border-radius: 2mm;
+}
+.doc-info.cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.doc-info > div {
+  padding: 1.1mm 3mm;
+  background: #fff;
+  break-inside: avoid;
+}
+.doc-info > div.is-wide {
+  grid-column: 1 / -1;
+}
+.doc-info dt {
+  margin-bottom: 0.3mm;
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: var(--doc-muted);
+}
+.doc-info dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.doc-days {
+  font-size: 12.5pt;
+  color: var(--doc-blue);
+}
+.doc-days small {
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: var(--doc-muted);
+}
+
+/* ---------- Tables ---------- */
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.3pt;
+}
+/* Repeats the column titles at the top of every printed page */
+.doc-table thead {
+  display: table-header-group;
+}
+/* Totals print once, at the end */
+.doc-table tfoot {
+  display: table-row-group;
+}
+.doc-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.doc-table th {
+  padding: 1.7mm 2mm;
+  font-size: 8.8pt;
+  font-weight: 700;
+  text-align: start;
+  color: #fff;
+  background: var(--doc-ink);
+}
+.doc-table td {
+  padding: 1.5mm 2mm;
+  vertical-align: top;
+  border-bottom: 0.6pt solid var(--doc-line);
+}
+.doc-table tbody tr:nth-child(even) td {
+  background: #faf6ec;
+}
+.doc-table tfoot td {
+  font-weight: 700;
+  background: var(--doc-band);
+  border-top: 1pt solid var(--doc-blue);
+}
+.doc-table.compact th,
+.doc-table.compact td {
+  padding: 1.1mm 2mm;
+  font-size: 8.6pt;
+}
+.doc-table small {
+  color: var(--doc-muted);
+}
+.doc-table .block {
+  display: block;
+}
+.doc-status {
+  display: inline-block;
+  padding: 0.2mm 2mm;
+  font-size: 8.3pt;
+  font-weight: 700;
+  white-space: nowrap;
+  border-radius: 10mm;
+}
+.doc-status.is-approved {
+  color: #2f6b22;
+  background: #e3f0dc;
+}
+.doc-status.is-rejected {
+  color: #a3241d;
+  background: #fae0dc;
+}
+.doc-status.is-pending {
+  color: #7d4e06;
+  background: #fbe9c2;
+}
+.doc-status.is-cancelled {
+  color: #555;
+  background: #ececec;
+}
+
+.doc-note,
+.doc-empty,
+.doc-filters {
+  margin: 1.5mm 0 0;
+  font-size: 8.5pt;
+  color: var(--doc-muted);
+}
+.doc-empty {
+  padding: 3mm;
+  text-align: center;
+  border: 0.8pt dashed var(--doc-line-strong);
+  border-radius: 2mm;
+}
+.doc-filters {
+  margin-top: 4mm;
+  font-size: 9.5pt;
+  font-weight: 700;
+}
+
+/* Report figures */
+.doc-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3mm;
+  margin-top: 5mm;
+}
+.doc-kpis div {
+  padding: 2.5mm;
+  text-align: center;
+  border: 0.8pt solid var(--doc-line-strong);
+  border-top: 1.4mm solid var(--doc-blue);
+  border-radius: 2mm;
+  break-inside: avoid;
+}
+.doc-kpis div:nth-child(2) {
+  border-top-color: #4f8a3c;
+}
+.doc-kpis div:nth-child(3) {
+  border-top-color: #d98a1c;
+}
+.doc-kpis div:nth-child(4) {
+  border-top-color: #f15a2b;
+}
+.doc-kpis strong {
+  display: block;
+  font-size: 16pt;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.doc-kpis span {
+  font-size: 8.5pt;
+  color: var(--doc-muted);
+}
+.doc-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5mm;
+}
+
+/* ---------- Signatures and footer ---------- */
+.doc-signatures {
+  margin-top: 5mm;
+}
+.sign-grid {
+  display: grid;
+  gap: 5mm;
+}
+.sign-grid.cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.sign-grid.cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.sign-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2.2mm;
+  padding: 2mm 3mm;
+  border: 0.8pt solid var(--doc-line-strong);
+  border-radius: 2mm;
+}
+.sign-box strong {
+  font-size: 10pt;
+  text-align: center;
+}
+.sign-line {
+  display: flex;
+  gap: 2mm;
+  font-size: 8.8pt;
+  color: var(--doc-muted);
+}
+.sign-line::after {
+  content: '';
+  flex: 1;
+  border-bottom: 0.7pt dotted #8b7d68;
+}
+.doc-foot {
+  margin-top: 3mm;
+  padding-top: 2mm;
+  font-size: 8pt;
+  text-align: center;
+  color: var(--doc-muted);
+  border-top: 0.6pt solid var(--doc-line-strong);
+}
+.print-sheet .pre-line {
+  white-space: pre-line;
+}
+.print-sheet .nowrap {
+  white-space: nowrap;
+}
+
+/* Phones: a fluid sheet instead of a fixed 210 mm one */
+@media screen and (max-width: 860px) {
+  .print-sheet {
+    width: auto;
+    min-height: 0;
+    margin: 12px;
+    padding: 16px;
+    overflow-x: auto;
+  }
+  .doc-head {
+    flex-wrap: wrap;
+  }
+  .doc-info.cols-3,
+  .doc-kpis,
+  .doc-two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+  body {
+    background-image: none !important;
+  }
+  .no-print,
+  .toast-stack {
+    display: none !important;
+  }
+  .print-page {
+    min-height: 0;
+    padding: 0;
+    background: none;
+  }
+  .print-sheet {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+}

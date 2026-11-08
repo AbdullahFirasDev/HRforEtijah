@@ -21,9 +21,9 @@ export const roleLabel = (role) => ROLE_LABELS[role] || role || '-';
 
 // Kinds of notifications a person can switch off (backend/utils/notify.js CATEGORIES)
 export const NOTIFICATION_CATEGORIES = {
-  requests: { label: 'طلبات بانتظار مراجعتك', hint: 'طلبات الزمنيات والعمل الإضافي من موظفيك، وإلغاء الزمنيات' },
+  requests: { label: 'طلبات بانتظار مراجعتك', hint: 'طلبات الإجازات والزمنيات والعمل الإضافي من موظفيك، وإلغاؤها' },
   team: { label: 'تأخر أعضاء الفريق', hint: 'عندما يسجّل أحد موظفيك حضوره متأخراً عن بداية دوامه' },
-  decisions: { label: 'الرد على طلباتي', hint: 'قبول زمنياتك وطلبات العمل الإضافي أو رفضها' },
+  decisions: { label: 'الرد على طلباتي', hint: 'قبول طلبات إجازاتك وزمنياتك والعمل الإضافي أو رفضها' },
   attendance: { label: 'سجل حضوري وجدول دوامي', hint: 'إغلاق فترة تلقائياً، وتعديل المسؤول لأوقاتك، وتغيير جدول دوامك' },
   reminders: {
     label: 'تذكير الحضور والانصراف',

@@ -35,6 +35,11 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
   const [updateUser, { isLoading: updating }] = useUpdateUserMutation();
   const [deleteUser, { isLoading: deleting }] = useDeleteUserMutation();
 
+  const [profile, setProfile] = useState(() => ({
+    employeeNumber: user.employeeNumber || '',
+    department: user.department || '',
+    jobTitle: user.jobTitle || '',
+  }));
   const [work, setWork] = useState(() => workFormFrom(user));
   const [workErrors, setWorkErrors] = useState({});
   const [applyMonth, setApplyMonth] = useState(false);
@@ -92,6 +97,12 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
     } catch (err) {
       setFeedback({ type: 'error', text: err?.data?.message || 'تعذر حفظ الدوام. حاول مرة أخرى.' });
     }
+  };
+
+  const saveProfile = (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(Object.entries(profile).map(([k, v]) => [k, v.trim()]));
+    run(() => updateUser({ id: user.id, ...body }), `حُفظت البيانات الوظيفية لـ ${user.name}.`);
   };
 
   const handlePasswordChange = (e) => {
@@ -153,6 +164,42 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
             </Alert>
           )}
         </div>
+
+        <section className="manage-section">
+          <h3>البيانات الوظيفية</h3>
+          <p className="form-note">اختيارية، وتظهر في طلبات الإجازة المطبوعة والتقارير، ويُبحث بها في إدارة الإجازات.</p>
+          <form onSubmit={saveProfile} noValidate>
+            <div className="form-row form-row-3">
+              <Field id="manage-number" label="الرقم الوظيفي">
+                <input
+                  id="manage-number"
+                  maxLength={40}
+                  value={profile.employeeNumber}
+                  onChange={(e) => setProfile((p) => ({ ...p, employeeNumber: e.target.value }))}
+                />
+              </Field>
+              <Field id="manage-department" label="القسم">
+                <input
+                  id="manage-department"
+                  maxLength={80}
+                  value={profile.department}
+                  onChange={(e) => setProfile((p) => ({ ...p, department: e.target.value }))}
+                />
+              </Field>
+              <Field id="manage-title" label="المسمى الوظيفي">
+                <input
+                  id="manage-title"
+                  maxLength={80}
+                  value={profile.jobTitle}
+                  onChange={(e) => setProfile((p) => ({ ...p, jobTitle: e.target.value }))}
+                />
+              </Field>
+            </div>
+            <button type="submit" className="btn" disabled={updating}>
+              {updating ? 'جارٍ الحفظ...' : 'حفظ البيانات الوظيفية'}
+            </button>
+          </form>
+        </section>
 
         {user.role === 'employee' && (
           <section className="manage-section">
@@ -297,7 +344,7 @@ export default function ManageUserModal({ user, onClose, onDeleted }) {
           ) : !confirmDelete ? (
             <>
               <p className="manage-text">
-                يحذف الحساب وكل سجلات حضوره وطلبات العمل الإضافي نهائياً. لإيقاف الدخول مع الاحتفاظ بالسجلات استخدم «تعطيل
+                يحذف الحساب وكل سجلات حضوره وطلبات العمل الإضافي والإجازات نهائياً. لإيقاف الدخول مع الاحتفاظ بالسجلات استخدم «تعطيل
                 الحساب».
               </p>
               <button type="button" className="btn danger" onClick={() => setConfirmDelete(true)}>
