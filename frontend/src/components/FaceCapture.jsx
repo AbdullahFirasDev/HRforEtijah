@@ -9,17 +9,12 @@ const FIRST_FRAME_TIMEOUT_MS = 10000;
 const FRAME_INTERVAL_MS = [100, 200];
 // Share of the frame the face must fill for a reliable print
 const MIN_FACE_SIZE = 0.2;
-// Head position from readFace(): facing the camera, and turned to a side
-const FACING = [0.4, 0.6];
-const TURNED_LOW = 0.36;
-const TURNED_HIGH = 0.64;
+// Head position from readFace(): facing the camera (0.5 is straight ahead)
+const FACING = [0.38, 0.62];
 // Prints averaged into one, for a steadier result
 const SAMPLES = { verify: 3, enroll: 5 };
-// Every frame that moves the check on after the first look at the camera
-// (the turned head, the prints at the end) must show the same face as that
-// first look, so nobody can do the head turn for a photo of someone else.
-// This is the library's own same-person limit, looser than the server's 0.5
-// match, because a turned face reads a little apart.
+// Every print must show the same face as the first one, so the frames can't
+// mix two people. This is the library's own same-person limit.
 const SAME_PERSON_DISTANCE = 0.6;
 // Camera settings, best first; later ones for devices that refuse the first
 const CAMERA_REQUESTS = [{ facingMode: 'user', width: 640, height: 480 }, { facingMode: 'user' }, true];
@@ -27,8 +22,7 @@ const CAMERA_REQUESTS = [{ facingMode: 'user', width: 640, height: 480 }, { faci
 const STEP_TEXT = {
   camera: 'جارٍ تشغيل الكاميرا...',
   loading: 'جارٍ تجهيز التحقق من الوجه...',
-  center: 'انظر مباشرة إلى الكاميرا',
-  back: 'عد بوجهك إلى الأمام وثبّت رأسك',
+  center: 'انظر مباشرة إلى الكاميرا وثبّت رأسك',
   done: 'تم التحقق من وجهك',
 };
 
@@ -44,14 +38,14 @@ const ERROR_TEXT = {
   engine: 'تعذر تشغيل التحقق من الوجه. تأكد من اتصالك بالإنترنت ثم أعد المحاولة.',
   stalled: 'توقف التحقق من الوجه عن الاستجابة. اضغط "إعادة المحاولة"، وإن تكرر ذلك فأعد فتح التطبيق.',
   timeout: 'لم يكتمل التحقق من الوجه في الوقت المحدد. تأكد من الإضاءة ثم أعد المحاولة.',
-  wrongWay: `أدرت رأسك إلى الجهة الأخرى. اضغط "إعادة المحاولة" ثم أدر رأسك نحو السهم.`,
-  changed: `تغيّر الوجه أثناء التحقق. يجب أن يُكمل الشخص نفسه كل الخطوات أمام الكاميرا. اضغط "إعادة المحاولة".`,
+  changed: `تغيّر الوجه أثناء التحقق. يجب أن يبقى الشخص نفسه أمام الكاميرا. اضغط "إعادة المحاولة".`,
 };
 
 const HINT_TEXT = {
   none: 'لا يظهر وجه. تأكد من الإضاءة واجعل وجهك داخل الإطار',
   many: 'يجب أن يظهر وجه واحد فقط أمام الكاميرا',
   far: 'اقترب من الكاميرا قليلاً',
+  side: 'انظر إلى منتصف الكاميرا مباشرة',
 };
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -115,14 +109,14 @@ const printDistance = (a, b) => {
 const averagePrint = (prints) =>
   Array.from({ length: prints[0].length }, (_, i) => prints.reduce((sum, p) => sum + p[i], 0) / prints.length);
 
-// Checks that a real person is in front of the camera (they turn their head
-// to a random side), then reads their face print. Only the print is passed
-// on: no frame is saved or sent, and the camera turns off as soon as the
-// check ends, whatever the outcome.
+// Reads the face print of the person looking straight at the camera: a few
+// quick frames of one face, averaged. Only the print is passed on: no frame
+// is saved or sent, and the camera turns off as soon as the check ends,
+// whatever the outcome.
 export default function FaceCapture({ purpose = 'verify', onCapture, onCancel }) {
   const videoRef = useRef(null);
   const boxRef = useRef(null);
-  const [view, setView] = useState({ step: 'camera', side: 'right', hint: '', error: '' });
+  const [view, setView] = useState({ step: 'camera', hint: '', error: '' });
   const [attempt, setAttempt] = useState(0);
 
   // On a phone the card sits below the fold, and the employee has to see the
@@ -180,68 +174,41 @@ export default function FaceCapture({ purpose = 'verify', onCapture, onCancel })
     engineReady.catch(() => {});
 
     const scan = async () => {
-      // The employee's right is the left of the camera's unflipped image
-      const turnSide = Math.random() < 0.5 ? 'right' : 'left';
-      const turnedEnough = (turn) => (turnSide === 'right' ? turn <= TURNED_LOW : turn >= TURNED_HIGH);
-      const turnedAway = (turn) => (turnSide === 'right' ? turn >= TURNED_HIGH : turn <= TURNED_LOW);
-      const facing = (turn) => turn >= FACING[0] && turn <= FACING[1];
-      // The frames that can move the check on (or fail it) get a print, and
-      // every print is compared with the first one: a face looking at the
-      // camera, and in the turn stage a head turned past either limit
-      const printWhen = {
-        center: { minSize: MIN_FACE_SIZE, turns: [FACING] },
-        turn: { minSize: MIN_FACE_SIZE, turns: [[-1, TURNED_LOW], [TURNED_HIGH, 2]] },
-        back: { minSize: MIN_FACE_SIZE, turns: [FACING] },
-      };
+      // Only a face looking at the camera gets a print
+      const printWhen = { minSize: MIN_FACE_SIZE, turns: [FACING] };
       const deadline = Date.now() + SCAN_TIMEOUT_MS;
       const prints = [];
-      let first = null; // print of the face that looked at the camera before turning
-      let stage = 'center';
-      show({ step: stage, side: turnSide });
+      show({ step: 'center' });
 
       while (!stopped) {
         if (Date.now() > deadline) return fail('timeout');
         const started = performance.now();
         let face;
         try {
-          face = await engine.read(video, printWhen[stage]);
+          face = await engine.read(video, printWhen);
         } catch (err) {
           return fail(err instanceof FaceEngineStalled ? 'stalled' : 'engine');
         }
         if (stopped) return undefined; // cancelled while the frame was analysed
 
         if (face.count !== 1) {
-          // Losing the face restarts the check, so nobody can pass the head
-          // turn and then hold up someone else's picture
-          stage = 'center';
+          // Losing the face starts the prints over, so they all come from one person
           prints.length = 0;
-          first = null;
-          show({ step: stage, hint: face.count ? HINT_TEXT.many : HINT_TEXT.none });
+          show({ hint: face.count ? HINT_TEXT.many : HINT_TEXT.none });
         } else if (face.size < MIN_FACE_SIZE) {
           show({ hint: HINT_TEXT.far });
+        } else if (!face.print) {
+          show({ hint: HINT_TEXT.side });
         } else {
           show({ hint: '' });
-          if (face.print && first && printDistance(face.print, first) >= SAME_PERSON_DISTANCE) return fail('changed');
-          if (stage === 'center' && facing(face.turn) && face.print) {
-            first = face.print;
-            stage = 'turn';
-            show({ step: stage });
-          } else if (stage === 'turn') {
-            // A recording that turns both ways fails here half of the time
-            if (turnedAway(face.turn)) return fail('wrongWay');
-            if (turnedEnough(face.turn) && face.print) {
-              stage = 'back';
-              show({ step: stage });
-            }
-          } else if (stage === 'back' && facing(face.turn) && face.print) {
-            prints.push(face.print);
-            if (prints.length >= SAMPLES[purpose]) {
-              const print = averagePrint(prints);
-              end();
-              show({ step: 'done' });
-              onCapture(print);
-              return undefined;
-            }
+          if (prints.length && printDistance(face.print, prints[0]) >= SAME_PERSON_DISTANCE) return fail('changed');
+          prints.push(face.print);
+          if (prints.length >= SAMPLES[purpose]) {
+            const print = averagePrint(prints);
+            end();
+            show({ step: 'done' });
+            onCapture(print);
+            return undefined;
           }
         }
         const spent = performance.now() - started;
@@ -287,19 +254,14 @@ export default function FaceCapture({ purpose = 'verify', onCapture, onCancel })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt, purpose]);
 
-  const { step, side, hint, error } = view;
-  const stepText = step === 'turn' ? `أدر رأسك قليلاً نحو ${side === 'right' ? 'اليمين' : 'اليسار'}` : STEP_TEXT[step];
+  const { step, hint, error } = view;
+  const stepText = STEP_TEXT[step];
 
   return (
     <div ref={boxRef}>
       <div className={`camera-box camera-live${error ? ' is-off' : ''}`}>
         <video ref={videoRef} autoPlay playsInline muted aria-label="معاينة الكاميرا" />
         <div className="face-guide" aria-hidden="true" />
-        {step === 'turn' && (
-          <span className={`face-arrow is-${side}`} aria-hidden="true">
-            {side === 'right' ? '→' : '←'}
-          </span>
-        )}
       </div>
       {!error && (
         <p className="face-step" role="status">

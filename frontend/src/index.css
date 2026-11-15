@@ -808,6 +808,11 @@ label.check-row {
   color: var(--blue-dark);
   background: var(--blue-soft);
 }
+/* مجاز: a day of approved leave in the monthly sheet */
+.badge.leave {
+  color: #fff;
+  background: var(--blue);
+}
 
 /* ---------- Filter toolbar ---------- */
 .toolbar {
@@ -1006,28 +1011,6 @@ tbody tr:hover td {
   border-radius: 50%;
   transform: translateX(-50%);
   pointer-events: none;
-}
-.face-arrow {
-  position: absolute;
-  top: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  font-size: 26px;
-  font-weight: 800;
-  color: var(--ink);
-  background: var(--mustard);
-  border: var(--border);
-  border-radius: 50%;
-  transform: translateY(-50%);
-}
-.face-arrow.is-right {
-  right: var(--space-3);
-}
-.face-arrow.is-left {
-  left: var(--space-3);
 }
 .face-step {
   margin: var(--space-3) 0 0;

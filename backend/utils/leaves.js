@@ -8,6 +8,7 @@ const LeaveRequest = require('../models/LeaveRequest');
 const LeaveAttachment = require('../models/LeaveAttachment');
 const LeaveBalanceEntry = require('../models/LeaveBalanceEntry');
 const Counter = require('../models/Counter');
+const logger = require('../config/logger');
 
 // Rules for leave requests (إجازات), see models/LeaveRequest.js. Company
 // policy (kinds of leave, what is paid, what uses a balance, how days are
@@ -148,6 +149,34 @@ const findOverlap = (userId, startDate, endDate, exceptId = null) =>
   })
     .select('number startDate endDate status')
     .lean();
+
+// ---------- Other sections ----------
+// Approved leaves of these employees that touch a period, for the monthly
+// sheet (مجاز instead of غائب) and the check-in reminders. Nothing (rather
+// than an error) while the section isn't set up or the lookup fails, so those
+// keep working exactly as before.
+const approvedLeaves = async (userIds, from, to) => {
+  if (!userIds.length) return [];
+  try {
+    if (!(await leavesReady())) return [];
+    return await LeaveRequest.find({
+      user: { $in: userIds },
+      status: 'Approved',
+      startDate: { $lte: to },
+      endDate: { $gte: from },
+    })
+      .select('user number typeName policy.paid startDate endDate countedDates')
+      .lean();
+  } catch (err) {
+    logger.warn(`Approved leaves lookup failed: ${err.message}`);
+    return [];
+  }
+};
+
+// The approved leave an employee is on that day. A weekly day off inside the
+// leave only counts when the leave counted it (calendar-day types).
+const leaveOn = (leaves, date, dayOff = false) =>
+  leaves.find((l) => l.startDate <= date && date <= l.endDate && (!dayOff || (l.countedDates || []).includes(date))) || null;
 
 // ---------- Balances ----------
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -404,6 +433,8 @@ module.exports = {
   daysByYear,
   checkDates,
   findOverlap,
+  approvedLeaves,
+  leaveOn,
   balancesFor,
   checkBalance,
   nextRequestNumber,

@@ -16,6 +16,7 @@ const STATES = {
   present: { label: 'حاضر', variant: 'success' },
   offWorked: { label: 'عمل في إجازة', variant: 'info' },
   absent: { label: 'غائب', variant: 'danger' },
+  onLeave: { label: 'مجاز', variant: 'leave' },
   off: { label: 'إجازة', variant: 'muted' },
   pending: { label: 'لم يحضر بعد', variant: 'warning' },
 };
@@ -37,6 +38,14 @@ const planText = (dayOff, shifts) => (dayOff ? 'إجازة' : shiftsText(shifts)
 const signedHours = (h) => `${h > 0 ? '+' : ''}${formatHours(h)}`;
 const countText = (days, minutes) => (days ? `${days} ${days === 1 ? 'يوم' : 'أيام'} · ${formatMinutes(minutes)}` : '-');
 
+// The approved leave on the day: "اعتيادية · 2026-0007", or a note that the
+// employee worked during it anyway
+const leaveNote = (d) => {
+  if (!d.leave) return '';
+  const what = `${d.leave.typeName}${d.leave.paid ? '' : ' (بدون راتب)'}`;
+  return d.state === 'onLeave' ? `${what} · ${d.leave.number}` : `عمل خلال إجازة مقبولة: ${what}`;
+};
+
 // The notes a timesheet day shows, in the shape attendanceNotes() reads
 const dayNotes = (d) => ({
   lateMinutes: d.lateMinutes,
@@ -51,9 +60,10 @@ const dayNotes = (d) => ({
 
 function NoteBadges({ day }) {
   const notes = attendanceNotes(dayNotes(day));
-  if (!notes.length && !day.overtimeRequest && !day.planOutdated && !day.wrongDay) return '-';
+  if (!notes.length && !day.overtimeRequest && !day.planOutdated && !day.wrongDay && !day.leave) return '-';
   return (
     <span className="notes-cell">
+      {day.leave && <span className={`badge ${day.state === 'onLeave' ? 'muted' : 'info'}`}>{leaveNote(day)}</span>}
       {day.planOutdated && <span className="badge warning">حُسب على دوام سابق</span>}
       {day.wrongDay && <span className="badge danger">تاريخ لا يطابق وقت الحضور</span>}
       {notes.map((n) => (
@@ -79,7 +89,11 @@ function Totals({ totals }) {
       sub: `المطلوب للشهر كاملاً حسب الجدول: ${formatHours(t.monthTargetHours)}`,
     },
     { label: 'الفرق', value: signedHours(t.balanceHours), tone: t.balanceHours < 0 ? 'neg' : 'pos' },
-    { label: 'أيام الحضور / الغياب / الإجازة', value: `${t.presentDays} / ${t.absentDays} / ${t.offDays}` },
+    {
+      label: 'أيام الحضور / الغياب / الإجازة',
+      value: `${t.presentDays} / ${t.absentDays} / ${t.offDays}`,
+      sub: t.onLeaveDays ? `مجاز (إجازات مقبولة): ${t.onLeaveDays} ${t.onLeaveDays === 1 ? 'يوم' : 'أيام'}` : undefined,
+    },
     { label: 'الزمنيات (إذن بالساعة)', value: t.leaveMinutes ? formatMinutes(t.leaveMinutes) : '0' },
     { label: 'التأخير', value: countText(t.lateDays, t.lateMinutes) },
     { label: 'الانصراف المبكر', value: countText(t.earlyLeaveDays, t.earlyLeaveMinutes) },
@@ -155,7 +169,11 @@ function TimesheetDetail({ userId, range, onBack, canEdit }) {
       label: 'ملاحظات',
       wrap: true,
       value: (d) =>
-        [notesText(dayNotes(d)), d.overtimeRequest && `طلب إضافي ${d.overtimeRequest.hours} س: ${statusLabel(d.overtimeRequest.status)}`]
+        [
+          leaveNote(d),
+          notesText(dayNotes(d)),
+          d.overtimeRequest && `طلب إضافي ${d.overtimeRequest.hours} س: ${statusLabel(d.overtimeRequest.status)}`,
+        ]
           .filter(Boolean)
           .join('، '),
       render: (d) => <NoteBadges day={d} />,
@@ -279,6 +297,7 @@ function TimesheetSummary({ range, onOpen }) {
       ),
     },
     { key: 'days', label: 'حضور / غياب', value: (e) => `${e.totals.presentDays} / ${e.totals.absentDays}` },
+    { key: 'onLeave', label: 'مجاز', value: (e) => (e.totals.onLeaveDays ? String(e.totals.onLeaveDays) : '-') },
     {
       key: 'hours',
       label: 'الساعات / المطلوب',

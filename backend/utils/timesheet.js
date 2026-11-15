@@ -1,5 +1,6 @@
 const { dayPlan, planShifts, samePlan, targetHours, weekdayOf } = require('./schedule');
 const { addDays, localDate } = require('./dateUtils');
+const { leaveOn } = require('./leaves');
 
 // Timesheets: one row per calendar day for one employee, with what was
 // planned, what happened and the period's totals. Days with a record use the
@@ -19,10 +20,11 @@ const sessionsOf = (r) => {
 };
 
 // Day states: present, offWorked (worked on a day off), absent (a working day
-// with no check-in), off, pending (today, not checked in yet), upcoming
-// (future) and beforeJoin (before the account existed). Only the first four
-// count in the totals.
-const buildTimesheet = ({ user, records, overtime, from, to, today }) => {
+// with no check-in), onLeave (مجاز: an approved leave, utils/leaves.js
+// leaveOn), off, pending (today, not checked in yet), upcoming (future) and
+// beforeJoin (before the account existed). Only the first five count in the
+// totals. A leave day asks for no hours; working on it anyway counts as usual.
+const buildTimesheet = ({ user, records, overtime, leaves = [], from, to, today }) => {
   const byDate = new Map(records.map((r) => [r.date, r]));
   const overtimeByDate = new Map(overtime.map((o) => [o.date, o]));
   const joined = user.createdAt ? localDate(user.createdAt) : from;
@@ -31,6 +33,7 @@ const buildTimesheet = ({ user, records, overtime, from, to, today }) => {
     workingDays: 0,
     presentDays: 0,
     absentDays: 0,
+    onLeaveDays: 0,
     offDays: 0,
     targetHours: 0,
     monthTargetHours: 0,
@@ -66,11 +69,13 @@ const buildTimesheet = ({ user, records, overtime, from, to, today }) => {
     // before automatic closing existed)
     const missed = !!r?.missedPunchOut || (!!last && !last.punchOut?.time && date < today);
     const worked = r?.totalHours || 0;
+    const leave = leaveOn(leaves, date, !!plan.dayOff);
 
     let state;
     if (date > today) state = 'upcoming';
     else if (date < joined && !sessions.length) state = 'beforeJoin';
     else if (sessions.length) state = plan.dayOff ? 'offWorked' : 'present';
+    else if (leave) state = 'onLeave';
     else if (plan.dayOff) state = 'off';
     else if (date === today) state = 'pending';
     else state = 'absent';
@@ -78,14 +83,16 @@ const buildTimesheet = ({ user, records, overtime, from, to, today }) => {
     const counted = ['present', 'offWorked', 'absent'].includes(state);
     const target = counted ? targetHours(plan) : 0;
     const ot = overtimeByDate.get(date);
-    // What the whole period asks for, days still to come included
-    if (state !== 'beforeJoin') totals.monthTargetHours += targetHours(plan);
+    // What the whole period asks for, days still to come included (but not
+    // the days of an approved leave, unless worked)
+    if (state !== 'beforeJoin' && !(leave && !sessions.length)) totals.monthTargetHours += targetHours(plan);
     if (planOutdated) totals.outdatedDays += 1;
     if (wrongDay) totals.wrongDays += 1;
 
     if (state === 'present' || state === 'absent') totals.workingDays += 1;
     if (state === 'present' || state === 'offWorked') totals.presentDays += 1;
     if (state === 'absent') totals.absentDays += 1;
+    if (state === 'onLeave') totals.onLeaveDays += 1;
     if (state === 'off' || state === 'offWorked') totals.offDays += 1;
     totals.targetHours += target;
     totals.workedHours += worked;
@@ -128,6 +135,9 @@ const buildTimesheet = ({ user, records, overtime, from, to, today }) => {
       currentShifts: planOutdated ? planShifts(current) : undefined,
       currentDayOff: planOutdated ? !!current.dayOff : undefined,
       overtimeRequest: ot ? { id: ot._id, hours: ot.requestedHours, status: ot.status } : null,
+      leave: leave
+        ? { id: leave._id, number: leave.number, typeName: leave.typeName, paid: leave.policy?.paid !== false }
+        : null,
     });
   }
 

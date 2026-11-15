@@ -6,6 +6,7 @@ const ApiError = require('../utils/ApiError');
 const { todayLocal } = require('../utils/dateUtils');
 const { TIMESHEET_FIELDS, buildTimesheet } = require('../utils/timesheet');
 const { reapplySchedule } = require('../utils/attendanceDay');
+const { approvedLeaves } = require('../utils/leaves');
 const logger = require('../config/logger');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,13 +28,17 @@ const rangeOf = (query) => {
 
 const sheetsFor = async (users, { from, to, today }) => {
   const ids = users.map((u) => u._id);
-  const [records, overtime] = await Promise.all([
+  const [records, overtime, leaves] = await Promise.all([
     Attendance.find({ user: { $in: ids }, date: { $gte: from, $lte: to } }).select(TIMESHEET_FIELDS).lean(),
     Overtime.find({ user: { $in: ids }, date: { $gte: from, $lte: to } }).lean(),
+    approvedLeaves(ids, from, to),
   ]);
   return users.map((user) => {
     const mine = (list) => list.filter((x) => String(x.user) === String(user._id));
-    return { user, ...buildTimesheet({ user, records: mine(records), overtime: mine(overtime), from, to, today }) };
+    return {
+      user,
+      ...buildTimesheet({ user, records: mine(records), overtime: mine(overtime), leaves: mine(leaves), from, to, today }),
+    };
   });
 };
 

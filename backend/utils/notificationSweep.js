@@ -7,6 +7,7 @@ const { dayPlan, planShifts } = require('./schedule');
 const { APP_TIMEZONE, addDays, todayLocal, zonedInstant } = require('./dateUtils');
 const { notificationsReady, retryPendingPush } = require('./notify');
 const events = require('./notifyEvents');
+const { approvedLeaves } = require('./leaves');
 
 // Notifications that depend on the clock rather than on a request:
 //   - the reminder to check out when a period reaches its end (during the
@@ -14,7 +15,8 @@ const events = require('./notifyEvents');
 //   - closing overdue periods, which the system already does before every
 //     attendance request, so the employee hears about it without waiting for
 //     one (the recorded time is the same either way);
-//   - the reminder to check in when a work period starts without a check-in;
+//   - the reminder to check in when a work period starts without a check-in
+//     (not on a day of an approved time leave or leave);
 //   - push messages that are due and not sent yet.
 // It runs once a minute on a server that stays up (a LAN server, `npm run
 // dev`), and on Vercel whenever an open app asks for its unread count
@@ -72,19 +74,23 @@ const remindCheckIn = async (now) => {
   if (!candidates.length) return;
   const ids = candidates.map((u) => u._id);
 
-  const [records, carried, leaves] = await Promise.all([
+  const [records, carried, leaves, dayLeaves] = await Promise.all([
     Attendance.find({ user: { $in: ids }, date: today }).select('user schedule sessions punchIn punchOut').lean(),
     // Still checked in from yesterday (an extended period past midnight)
     Attendance.find({ user: { $in: ids }, date: addDays(today, -1), autoCloseAt: { $ne: null } }).select('user').lean(),
     TimeLeave.find({ user: { $in: ids }, date: today, status: 'Approved' }).select('user from to').lean(),
+    // On an approved leave (إجازة) today: no reminders at all
+    approvedLeaves(ids, today, today),
   ]);
   const recordOf = new Map(records.map((r) => [String(r.user), r]));
   const stillIn = new Set(carried.map((r) => String(r.user)));
+  const onLeave = new Set(dayLeaves.map((l) => String(l.user)));
   const leavesOf = new Map();
   leaves.forEach((l) => leavesOf.set(String(l.user), [...(leavesOf.get(String(l.user)) || []), l]));
 
   for (const user of candidates) {
     const id = String(user._id);
+    if (onLeave.has(id)) continue;
     const record = recordOf.get(id);
     const sessions = sessionsOf(record);
     if (stillIn.has(id) || sessions.some((s) => !s.punchOut?.time)) continue; // checked in now
