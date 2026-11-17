@@ -3,7 +3,8 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const generateToken = require('../utils/generateToken');
 const { createUserAccount, isFirstSetup } = require('../utils/userAccount');
-const { claimDevice } = require('../utils/device');
+const { accountsOnDevice, claimDevice } = require('../utils/device');
+const { closestAccount } = require('../utils/faceData');
 
 // @desc  Register a new user (signing up also registers this device). Anyone
 //        can sign up, so only as an employee; the very first account of a
@@ -44,6 +45,49 @@ const login = asyncHandler(async (req, res) => {
   res.json({ success: true, token, user: user.toSafeObject() });
 });
 
+// @desc  Who can sign in on this device with their face: the accounts it is
+//        registered to. Only the browser knows its device ID, so this tells a
+//        stranger nothing; it lets the login page greet the person and offer
+//        face login.
+// @route POST /api/auth/device   { deviceId }
+// @access Public
+const deviceAccounts = asyncHandler(async (req, res) => {
+  const accounts = await accountsOnDevice(req.body.deviceId);
+  res.json({
+    success: true,
+    accounts: accounts
+      .filter((a) => a.isActive)
+      .map((a) => ({ name: a.name, faceEnrolled: !!a.faceEnrolledAt })),
+  });
+});
+
+// @desc  Face login: the face print from the camera (computed on the device,
+//        like a check-in) is compared with the prints of the accounts
+//        registered on this device; the matching one is signed in. Uses the
+//        print each employee already registered, so nothing new to set up.
+// @route POST /api/auth/face-login   { deviceId, face }
+// @access Public (the registered device and the right face)
+const faceLogin = asyncHandler(async (req, res) => {
+  const accounts = await accountsOnDevice(req.body.deviceId, '+faceDescriptor');
+  const usable = accounts.filter((a) => a.isActive && a.faceDescriptor);
+  if (!usable.length) {
+    throw new ApiError(
+      401,
+      accounts.some((a) => !a.isActive)
+        ? 'هذا الحساب معطّل. تواصل مع مسؤول النظام'
+        : 'لا يوجد على هذا الجهاز حساب مسجّل ببصمة الوجه. سجّل الدخول بالبريد الإلكتروني وكلمة المرور.'
+    );
+  }
+  const match = closestAccount(usable, req.body.face);
+  if (!match) {
+    // A 401 counts towards the sign-in attempt limit, like a wrong password
+    throw new ApiError(401, 'لم يتطابق الوجه مع بصمة الحساب المسجّل على هذا الجهاز. أعد المحاولة في إضاءة جيدة، أو ادخل بكلمة المرور.');
+  }
+  const user = await User.findById(match.account._id);
+  const token = generateToken(user._id, user.role);
+  res.json({ success: true, token, user: user.toSafeObject() });
+});
+
 // @desc  Get current logged-in user
 // @route GET /api/auth/me
 // @access Private
@@ -51,4 +95,4 @@ const getMe = asyncHandler(async (req, res) => {
   res.json({ success: true, user: req.user.toSafeObject() });
 });
 
-module.exports = { register, login, getMe };
+module.exports = { register, login, deviceAccounts, faceLogin, getMe };

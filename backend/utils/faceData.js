@@ -57,10 +57,28 @@ const verifyFace = async (userId, print) => {
   return Math.round(distance * 1000) / 1000;
 };
 
+// Face login: of the given accounts (loaded with +faceDescriptor), the one
+// whose registered print is closest to this one, if it is close enough to be
+// the same person (the same limit as a check-in); null otherwise
+const closestAccount = (accounts, print) => {
+  let best = null;
+  for (const account of accounts) {
+    if (!account.faceDescriptor) continue;
+    let distance;
+    try {
+      distance = printDistance(print, decryptPrint(account.faceDescriptor));
+    } catch {
+      continue; // a print saved under another key can't be compared
+    }
+    if (distance < MATCH_DISTANCE && (!best || distance < best.distance)) best = { account, distance };
+  }
+  return best;
+};
+
 // One face, one account: stops someone registering for a colleague too
 const isFaceTaken = async (userId, print) => {
   const others = await User.find({ _id: { $ne: userId }, faceDescriptor: { $ne: null } }).select('+faceDescriptor');
   return others.some((other) => printDistance(print, decryptPrint(other.faceDescriptor)) < DUPLICATE_DISTANCE);
 };
 
-module.exports = { faceRule, encryptPrint, verifyFace, isFaceTaken };
+module.exports = { faceRule, encryptPrint, verifyFace, isFaceTaken, closestAccount };

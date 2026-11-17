@@ -1372,6 +1372,21 @@ tbody tr:hover td {
   color: var(--muted);
   border-top: 2px dashed var(--line);
 }
+/* Face login: the main way in on a device with a registered face */
+.face-login-greeting {
+  margin: 0 0 var(--space-3);
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+}
+button.btn.face-login-start {
+  min-height: 52px;
+  font-size: 17px;
+}
+.login-switch {
+  margin: var(--space-4) 0 0;
+  text-align: center;
+}
 
 /* ---------- Profile menu (header) ---------- */
 .profile-menu {

@@ -1,10 +1,11 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { register, login, getMe } = require('../controllers/authController');
+const { register, login, deviceAccounts, faceLogin, getMe } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 const { newUserRules } = require('../utils/userAccount');
 const { deviceIdRule } = require('../utils/device');
+const { faceRule } = require('../utils/faceData');
 
 const router = express.Router();
 
@@ -20,6 +21,10 @@ router.post(
   validate,
   login
 );
+
+// Face login (the main way in) and who it is offered to on this device
+router.post('/device', [deviceIdRule], validate, deviceAccounts);
+router.post('/face-login', [deviceIdRule, faceRule], validate, faceLogin);
 
 router.get('/me', protect, getMe);
 

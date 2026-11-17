@@ -75,4 +75,12 @@ const claimDevice = async (userId, deviceId, userAgent) => {
   return user;
 };
 
-module.exports = { OTHER_DEVICE_MESSAGE, deviceIdRule, isRegisteredDevice, claimDevice };
+// The accounts registered on a device (usually one; a shared phone can hold a
+// few). `extra` adds hidden fields, e.g. '+faceDescriptor'.
+const accountsOnDevice = (deviceId, extra = '') =>
+  User.find({ deviceIdHash: hashDeviceId(deviceId) })
+    .select(`name role isActive faceEnrolledAt ${extra}`.trim())
+    .sort({ updatedAt: -1 })
+    .limit(10);
+
+module.exports = { OTHER_DEVICE_MESSAGE, deviceIdRule, isRegisteredDevice, claimDevice, accountsOnDevice };
