@@ -12,6 +12,7 @@
     "reset-device": "node utils/resetDevice.js",
     "notifications:migrate": "node utils/notificationsMigrate.js",
     "leaves:migrate": "node utils/leavesMigrate.js",
+    "attendance:recalc": "node utils/recalcAttendance.js",
     "vapid-keys": "node utils/vapidKeys.js"
   },
   "dependencies": {

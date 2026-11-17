@@ -49,12 +49,12 @@ export const attendanceApi = apiSlice.injectEndpoints({
     // Admin: correct a day's check-in/check-out times
     editAttendancePeriods: builder.mutation({
       query: ({ id, ...body }) => ({ url: `/attendance/${id}/periods`, method: 'PATCH', body }),
-      invalidatesTags: ['Attendance', 'Report'],
+      invalidatesTags: ['Attendance', 'Report', 'TimeLeave'],
     }),
     // Admin: record a day the employee never checked in
     addManualAttendance: builder.mutation({
       query: (body) => ({ url: '/attendance/manual', method: 'POST', body }),
-      invalidatesTags: ['Attendance', 'Report'],
+      invalidatesTags: ['Attendance', 'Report', 'TimeLeave'],
     }),
   }),
 });

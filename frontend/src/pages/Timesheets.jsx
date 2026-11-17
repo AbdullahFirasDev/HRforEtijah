@@ -115,15 +115,15 @@ function Totals({ totals }) {
   const t = totals;
   const items = [
     {
-      label: 'ساعات العمل / المطلوبة',
-      value: `${formatHours(t.workedHours)} / ${formatHours(t.targetHours)}`,
-      sub: `المطلوب للشهر كاملاً حسب الجدول: ${formatHours(t.monthTargetHours)}`,
+      label: 'ساعات العمل / المطلوبة (للأيام المنتهية)',
+      value: `${formatMinutes(t.workedMinutes)} / ${formatMinutes(t.targetMinutes)}`,
+      sub: `المطلوب للشهر كاملاً حسب الجدول: ${formatMinutes(t.monthTargetMinutes)}`,
     },
     {
       label: 'الفرق (الرصيد)',
       value: signedMinutes(t.balanceMinutes),
       tone: t.balanceMinutes < 0 ? 'neg' : 'pos',
-      sub: 'الإضافي والحضور المبكر ناقص التأخير والانصراف المبكر والغياب',
+      sub: `= ساعات العمل ${formatMinutes(t.workedMinutes)} + الزمنيات المحتسبة ${formatMinutes(t.leaveMinutes)} − المطلوب ${formatMinutes(t.targetMinutes)}`,
     },
     {
       label: 'أيام الحضور / الغياب / الإجازة',
@@ -263,7 +263,7 @@ function TimesheetDetail({ userId, range, onBack, canEdit, canGrant }) {
     {
       key: 'hours',
       label: 'الساعات / المطلوب',
-      value: (d) => `${formatHours(d.workedHours)} / ${formatHours(d.targetHours)}`,
+      value: (d) => `${minutesCell(d.workedMinutes)} / ${minutesCell(d.targetMinutes)}`,
     },
     { key: 'earlyArrival', label: 'حضور مبكر', value: (d) => minutesCell(d.earlyArrivalMinutes) },
     {
@@ -500,7 +500,7 @@ function TimesheetSummary({ range, onOpen }) {
     {
       key: 'hours',
       label: 'الساعات / المطلوب',
-      value: (e) => `${formatHours(e.totals.workedHours)} / ${formatHours(e.totals.targetHours)}`,
+      value: (e) => `${formatMinutes(e.totals.workedMinutes)} / ${formatMinutes(e.totals.targetMinutes)}`,
     },
     {
       key: 'balance',

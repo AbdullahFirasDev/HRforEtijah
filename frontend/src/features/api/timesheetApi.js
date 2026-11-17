@@ -5,12 +5,12 @@ export const timesheetApi = apiSlice.injectEndpoints({
     // Totals per employee for managers (their team) and admins (everyone)
     getTimesheetSummary: builder.query({
       query: (params) => ({ url: '/timesheets/summary', params }),
-      providesTags: ['Attendance', 'Overtime', 'TimeLeave'],
+      providesTags: ['Attendance', 'Overtime', 'TimeLeave', 'Leave'],
     }),
     // One employee's days; without userId, the signed-in user's own
     getTimesheet: builder.query({
       query: ({ userId, ...params }) => ({ url: userId ? `/timesheets/user/${userId}` : '/timesheets/me', params }),
-      providesTags: ['Attendance', 'Overtime', 'TimeLeave'],
+      providesTags: ['Attendance', 'Overtime', 'TimeLeave', 'Leave'],
     }),
     // Admin: recalculate recorded days on the employee's current schedule
     reapplySchedule: builder.mutation({

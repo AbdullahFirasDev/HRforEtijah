@@ -6,7 +6,7 @@ export const timeLeaveApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     requestTimeLeave: builder.mutation({
       query: (body) => ({ url: '/time-leaves', method: 'POST', body }),
-      invalidatesTags: ['TimeLeave', 'Attendance'],
+      invalidatesTags: ['TimeLeave', 'Attendance', 'Report'],
     }),
     getMyTimeLeaves: builder.query({
       query: () => '/time-leaves/me',
@@ -14,7 +14,7 @@ export const timeLeaveApi = apiSlice.injectEndpoints({
     }),
     cancelTimeLeave: builder.mutation({
       query: (id) => ({ url: `/time-leaves/${id}/cancel`, method: 'PATCH' }),
-      invalidatesTags: ['TimeLeave', 'Attendance'],
+      invalidatesTags: ['TimeLeave', 'Attendance', 'Report'],
     }),
     getTimeLeavesForReview: builder.query({
       query: (params) => ({ url: '/time-leaves/review', params }),
@@ -27,21 +27,21 @@ export const timeLeaveApi = apiSlice.injectEndpoints({
     }),
     reviewTimeLeave: builder.mutation({
       query: ({ id, ...body }) => ({ url: `/time-leaves/${id}/review`, method: 'PATCH', body }),
-      invalidatesTags: ['TimeLeave', 'Attendance'],
+      invalidatesTags: ['TimeLeave', 'Attendance', 'Report'],
     }),
     // Managers and admins: add an approved leave for an employee (past days
     // too), correct its times, or withdraw it
     grantTimeLeave: builder.mutation({
       query: (body) => ({ url: '/time-leaves/grant', method: 'POST', body }),
-      invalidatesTags: ['TimeLeave', 'Attendance'],
+      invalidatesTags: ['TimeLeave', 'Attendance', 'Report'],
     }),
     updateTimeLeave: builder.mutation({
       query: ({ id, ...body }) => ({ url: `/time-leaves/${id}`, method: 'PATCH', body }),
-      invalidatesTags: ['TimeLeave', 'Attendance'],
+      invalidatesTags: ['TimeLeave', 'Attendance', 'Report'],
     }),
     revokeTimeLeave: builder.mutation({
       query: ({ id, ...body }) => ({ url: `/time-leaves/${id}/revoke`, method: 'PATCH', body }),
-      invalidatesTags: ['TimeLeave', 'Attendance'],
+      invalidatesTags: ['TimeLeave', 'Attendance', 'Report'],
     }),
   }),
 });

@@ -1,7 +1,7 @@
 const { dayPlan, planShifts, samePlan, targetHours, weekdayOf } = require('./schedule');
 const { addDays, localDate, zonedInstant } = require('./dateUtils');
 const { leaveOn } = require('./leaves');
-const { dayMetrics } = require('./dayMetrics');
+const { dayMetrics, planMinutes } = require('./dayMetrics');
 
 // Timesheets: one row per calendar day for one employee, with what was
 // planned, what happened and the period's totals. Days with a record use the
@@ -44,9 +44,10 @@ const buildTimesheet = ({ user, records, overtime, leaves = [], timeLeaves = [],
     absentDays: 0,
     onLeaveDays: 0,
     offDays: 0,
-    targetHours: 0,
-    monthTargetHours: 0,
-    workedHours: 0,
+    // Finished days only: worked + leaveMinutes − target = balance
+    workedMinutes: 0,
+    targetMinutes: 0,
+    monthTargetMinutes: 0,
     earlyArrivalDays: 0,
     earlyArrivalMinutes: 0,
     lateDays: 0,
@@ -118,13 +119,13 @@ const buildTimesheet = ({ user, records, overtime, leaves = [], timeLeaves = [],
     // A day with no check-in at all: its missing hours are absence
     const absentMinutes = state === 'absent' ? metrics.shortMinutes : 0;
     const short = state === 'absent' ? 0 : metrics?.shortMinutes || 0;
-    const worked = r?.totalHours || 0;
-    const target = tracked ? targetHours(plan) : 0;
+    const worked = metrics?.workedMinutes || 0;
+    const target = tracked ? metrics.targetMinutes : 0;
     const ot = overtimeByDate.get(date);
 
     // What the whole period asks for, days still to come included (but not
     // the days of an approved leave, unless worked)
-    if (state !== 'beforeJoin' && !(leave && !sessions.length)) totals.monthTargetHours += targetHours(plan);
+    if (state !== 'beforeJoin' && !(leave && !sessions.length)) totals.monthTargetMinutes += planMinutes(plan);
     if (planOutdated) totals.outdatedDays += 1;
     if (wrongDay) totals.wrongDays += 1;
     if (state === 'present' || state === 'absent') totals.workingDays += 1;
@@ -150,8 +151,8 @@ const buildTimesheet = ({ user, records, overtime, leaves = [], timeLeaves = [],
           totals[`${key}Minutes`] += minutes;
         }
       };
-      totals.targetHours += target;
-      totals.workedHours += worked;
+      totals.targetMinutes += target;
+      totals.workedMinutes += worked;
       add('earlyArrival', metrics.earlyArrivalMinutes);
       add('late', metrics.lateMinutes);
       add('earlyLeave', metrics.earlyLeaveMinutes);
@@ -168,12 +169,14 @@ const buildTimesheet = ({ user, records, overtime, leaves = [], timeLeaves = [],
       state,
       dayOff: !!plan.dayOff,
       shifts,
-      targetHours: target,
+      targetHours: round2(target / 60),
+      targetMinutes: target,
       recordId: r?._id || null,
       firstIn: sessions[0]?.punchIn?.time || null,
       lastOut: last?.punchOut?.time || null,
       periods: sessions.length,
-      workedHours: worked,
+      workedHours: round2(worked / 60),
+      workedMinutes: worked,
       status: r?.status || null,
       // Part of the totals (false while today is still going on)
       counted,
@@ -213,9 +216,9 @@ const buildTimesheet = ({ user, records, overtime, leaves = [], timeLeaves = [],
     });
   }
 
-  totals.targetHours = round2(totals.targetHours);
-  totals.monthTargetHours = round2(totals.monthTargetHours);
-  totals.workedHours = round2(totals.workedHours);
+  totals.targetHours = round2(totals.targetMinutes / 60);
+  totals.monthTargetHours = round2(totals.monthTargetMinutes / 60);
+  totals.workedHours = round2(totals.workedMinutes / 60);
   totals.balanceHours = round2(totals.balanceMinutes / 60);
   totals.overtimeApprovedHours = round2(totals.overtimeApprovedHours);
   totals.overtimePendingHours = round2(totals.overtimePendingHours);

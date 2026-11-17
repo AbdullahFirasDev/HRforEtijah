@@ -89,6 +89,8 @@ const attendanceSchema = new mongoose.Schema(
     earlyArrivalMinutes: { type: Number, default: 0 }, // worked before the period's start
     overtimeMinutes: { type: Number, default: 0 }, // worked outside the planned periods (after the end, days off)
     leaveMinutes: { type: Number, default: 0 }, // excused by approved time leaves
+    // Version of the day rules the counts above were saved with (utils/dayMetrics.js)
+    calcVersion: { type: Number },
     // When the open period ends if nobody checks out: it is closed at this
     // time, a few minutes later (see utils/attendanceDay.js); null once closed
     autoCloseAt: { type: Date, default: null },

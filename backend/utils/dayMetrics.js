@@ -23,13 +23,18 @@ const { planShifts, targetHours, toMinutes } = require('./schedule');
 // So, for a finished day:  worked + excused − target
 //   = earlyArrival + overtime − late − earlyLeave − short
 // (short = gaps + missed periods, or the hours missing on a flexible day),
-// which is the day's balance (الفرق).
+// which is the day's balance (الفرق). Punches count in whole minutes (the
+// seconds are dropped), so both sides are equal to the minute.
 
 const MINUTE = 60e3;
+// Raised whenever these rules change: saved days of an older version are
+// recalculated (utils/recalcAttendance.js)
+const CALC_VERSION = 2;
 
 const tzOf = (plan) => plan?.timezone || APP_TIMEZONE;
 const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
 const toMin = (ms) => Math.round(ms / MINUTE);
+const floorMinute = (ms) => Math.floor(ms / MINUTE) * MINUTE;
 const leaveLength = (l) => Math.max(0, toMinutes(l.to) - toMinutes(l.from));
 
 // Sorted, non-overlapping copy of [start, end] intervals
@@ -52,7 +57,19 @@ const clockOf = (ms, tz) => {
 const periodsOf = (sessions) =>
   (sessions || [])
     .filter((s) => s.punchIn?.time)
-    .map((s) => ({ in: +new Date(s.punchIn.time), out: s.punchOut?.time ? +new Date(s.punchOut.time) : null }));
+    .map((s) => ({
+      in: floorMinute(+new Date(s.punchIn.time)),
+      out: s.punchOut?.time ? floorMinute(+new Date(s.punchOut.time)) : null,
+    }));
+
+// Minutes a day's plan asks for: its work periods exactly, the default
+// target on a day without fixed hours, nothing on a day off
+const planMinutes = (plan) => {
+  if (plan?.dayOff) return 0;
+  const shifts = planShifts(plan);
+  if (shifts.length) return shifts.reduce((sum, s) => sum + Math.max(0, toMinutes(s.end) - toMinutes(s.start)), 0);
+  return Math.round(targetHours(plan) * 60);
+};
 
 const empty = () => ({
   workedMinutes: 0,
@@ -77,7 +94,7 @@ const dayMetrics = ({ date, plan, sessions, leaves = [], now = Date.now() }) => 
   const periods = periodsOf(sessions);
   const workedMs = periods.reduce((sum, p) => sum + (p.out != null ? Math.max(0, p.out - p.in) : 0), 0);
   m.workedMinutes = toMin(workedMs);
-  m.targetMinutes = Math.round(targetHours(plan) * 60);
+  m.targetMinutes = planMinutes(plan);
 
   // A day off: everything worked is extra
   if (plan?.dayOff) {
@@ -159,4 +176,4 @@ const dayMetrics = ({ date, plan, sessions, leaves = [], now = Date.now() }) => 
   return m;
 };
 
-module.exports = { dayMetrics, leaveLength };
+module.exports = { CALC_VERSION, dayMetrics, leaveLength, planMinutes };

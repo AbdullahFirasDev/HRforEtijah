@@ -2,7 +2,7 @@ const Attendance = require('../models/Attendance');
 const Overtime = require('../models/Overtime');
 const TimeLeave = require('../models/TimeLeave');
 const { calculateHours, deriveStatus, STANDARD_SHIFT_HOURS } = require('./hours');
-const { dayMetrics } = require('./dayMetrics');
+const { CALC_VERSION, dayMetrics } = require('./dayMetrics');
 const { APP_TIMEZONE, addDays, localMinutes, todayLocal, zonedInstant, endOfLocalDay } = require('./dateUtils');
 const { dayPlan, planShifts, samePlan, targetHours, toMinutes } = require('./schedule');
 const notifyEvents = require('./notifyEvents');
@@ -67,6 +67,7 @@ const recalcDay = (record, leaves = []) => {
   record.earlyArrivalMinutes = metrics.earlyArrivalMinutes;
   record.overtimeMinutes = metrics.overtimeMinutes;
   record.leaveMinutes = metrics.excusedMinutes;
+  record.calcVersion = CALC_VERSION;
 
   record.totalHours = Math.round(worked * 100) / 100;
   // Excused time counts towards completing the day, but not as overtime
