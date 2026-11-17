@@ -8,7 +8,8 @@ import Loading from '../components/Loading';
 import Alert from '../components/Alert';
 import EditTimesModal from '../components/EditTimesModal';
 import TimeLeaveModal from '../components/TimeLeaveModal';
-import { formatClockTime, formatHours, formatMinutes, formatMonthYear, todayStr } from '../utils/format';
+import { formatClock, formatClockTime, formatHours, formatMinutes, formatMonthYear, todayStr } from '../utils/format';
+import { leaveTypeLabel } from '../utils/timeLeave';
 import { attendanceNotes, notesText } from '../utils/attendance';
 import { DAY_NAMES, shiftsText } from '../utils/workSchedule';
 import { statusLabel } from '../utils/labels';
@@ -58,6 +59,16 @@ const dayNotes = (d) => ({
   dayOff: d.state === 'offWorked',
   edited: d.edited,
 });
+
+// The day's approved time leaves (زمنيات)
+const approvedLeaves = (d) => d.timeLeaves.filter((l) => l.status === 'Approved');
+// e.g. "زمنية 10:00 ص – 12:00 م (تأخير عن بداية الدوام)، محتسب 2 س"
+const approvedLeavesText = (d) => {
+  const list = approvedLeaves(d);
+  if (!list.length) return '';
+  const what = list.map((l) => `زمنية ${formatClock(l.from)} – ${formatClock(l.to)} (${leaveTypeLabel(l.type)})`).join('، ');
+  return d.leaveMinutes ? `${what}، محتسب ${formatMinutes(d.leaveMinutes)}` : what;
+};
 
 // Time leaves of the day not decided yet, e.g. "زمنية بانتظار القرار 10:00–12:00"
 const pendingLeavesText = (d) =>
@@ -177,6 +188,21 @@ function Totals({ totals }) {
             </span>
           </div>
         ))}
+        <div className="balance-part is-neutral">
+          <span className="balance-sign" aria-hidden="true">
+            ز
+          </span>
+          <span className="balance-body">
+            <strong>{t.timeLeaveCount ? `${t.timeLeaveCount} ${t.timeLeaveCount === 1 ? 'زمنية' : 'زمنيات'}` : 'لا زمنيات'}</strong>
+            <span>الزمنيات المعتمدة</span>
+            <small>
+              {t.timeLeaveCount
+                ? `في ${daysText(t.timeLeaveDays)} · ${formatMinutes(t.timeLeaveRequestedMinutes)}، محتسب منها ${formatMinutes(t.leaveMinutes)} (لا تُحسب تأخيراً)`
+                : 'لم تُعتمد زمنيات في هذه الفترة'}
+              {t.timeLeavePendingCount ? ` · ${t.timeLeavePendingCount} بانتظار القرار` : ''}
+            </small>
+          </span>
+        </div>
         <div className={`balance-part is-total ${t.balanceMinutes < 0 ? 'is-minus' : 'is-plus'}`}>
           <span className="balance-sign" aria-hidden="true">
             =
@@ -184,9 +210,7 @@ function Totals({ totals }) {
           <span className="balance-body">
             <strong>{signedMinutes(t.balanceMinutes)}</strong>
             <span>الفرق</span>
-            <small>
-              الزمنيات المعتمدة ({t.timeLeaveCount}، {formatMinutes(t.leaveMinutes)}) لا تُحسب تأخيراً ولا انصرافاً
-            </small>
+            <small>مجموع البنود الموجبة والسالبة</small>
           </span>
         </div>
       </div>
@@ -212,6 +236,9 @@ function TimesheetDetail({ userId, range, onBack, canEdit, canGrant }) {
       <span className="cell-stack">
         <strong>{d.date}</strong>
         <small>{DAY_NAMES[d.weekday]}</small>
+        {approvedLeaves(d).length > 0 && (
+          <span className="badge info">{approvedLeaves(d).length > 1 ? `${approvedLeaves(d).length} زمنيات` : 'زمنية'}</span>
+        )}
       </span>
     ) },
     {
@@ -257,7 +284,32 @@ function TimesheetDetail({ userId, range, onBack, canEdit, canGrant }) {
       value: (d) => minutesCell(d.overtimeMinutes),
       render: (d) => (d.overtimeMinutes ? <span className="badge info">{formatMinutes(d.overtimeMinutes)}</span> : '-'),
     },
-    { key: 'leaveMinutes', label: 'زمنية', value: (d) => minutesCell(d.leaveMinutes) },
+    {
+      key: 'timeLeaves',
+      label: 'زمنية',
+      wrap: true,
+      value: (d) => approvedLeavesText(d) || '-',
+      render: (d) => {
+        const list = approvedLeaves(d);
+        if (!list.length) return '-';
+        return (
+          <span className="cell-stack">
+            {list.map((l) => (
+              <span key={l.id}>
+                <span className="badge info" dir="ltr">
+                  {l.from}–{l.to}
+                </span>{' '}
+                <small>
+                  {leaveTypeLabel(l.type)}
+                  {l.added ? ' · أضافتها الإدارة' : ''}
+                </small>
+              </span>
+            ))}
+            {d.leaveMinutes > 0 && <small>محتسب: {formatMinutes(d.leaveMinutes)}</small>}
+          </span>
+        );
+      },
+    },
     {
       key: 'balance',
       label: 'الفرق',
@@ -462,7 +514,21 @@ function TimesheetSummary({ range, onOpen }) {
     { key: 'late', label: 'التأخير', value: (e) => countText(e.totals.lateDays, e.totals.lateMinutes) },
     { key: 'earlyLeave', label: 'انصراف مبكر', value: (e) => countText(e.totals.earlyLeaveDays, e.totals.earlyLeaveMinutes) },
     { key: 'overtime', label: 'الإضافي', value: (e) => minutesCell(e.totals.overtimeMinutes) },
-    { key: 'leaves', label: 'الزمنيات', value: (e) => minutesCell(e.totals.leaveMinutes) },
+    {
+      key: 'leaves',
+      label: 'عدد الزمنيات',
+      value: (e) =>
+        e.totals.timeLeaveCount ? `${e.totals.timeLeaveCount} · ${formatMinutes(e.totals.timeLeaveRequestedMinutes)}` : '-',
+      render: (e) =>
+        e.totals.timeLeaveCount ? (
+          <span className="cell-stack">
+            <span className="badge info">{e.totals.timeLeaveCount}</span>
+            <small>{formatMinutes(e.totals.timeLeaveRequestedMinutes)}</small>
+          </span>
+        ) : (
+          '-'
+        ),
+    },
     {
       key: 'missed',
       label: 'انصراف تلقائي',

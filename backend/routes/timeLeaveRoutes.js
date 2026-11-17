@@ -5,6 +5,7 @@ const {
   getMyLeaves,
   cancelLeave,
   getLeavesForReview,
+  getLeaveStats,
   reviewLeave,
   grantLeave,
   updateLeave,
@@ -23,6 +24,7 @@ router.post('/', authorize('employee'), requestRules, validate, requestLeave);
 router.get('/me', getMyLeaves);
 router.patch('/:id/cancel', cancelLeave);
 router.get('/review', authorize('manager', 'admin'), getLeavesForReview);
+router.get('/stats', authorize('manager', 'admin'), getLeaveStats);
 // Managers and admins add a leave for an employee (past days too), correct or withdraw one
 router.post('/grant', authorize('manager', 'admin'), grantRules, validate, grantLeave);
 router.patch('/:id', authorize('manager', 'admin'), editRules, validate, updateLeave);

@@ -88,14 +88,42 @@ const cancelLeave = asyncHandler(async (req, res) => {
   res.json({ success: true, leave });
 });
 
-// @desc  Time leaves of the people the reviewer oversees
-// @route GET /api/time-leaves/review?status=Pending
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_RANGE_DAYS = 366;
+
+// The requested period, the current month by default
+const periodOf = (query) => {
+  const today = todayLocal();
+  const from = query.from || `${today.slice(0, 8)}01`;
+  const to =
+    query.to || new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0)).toISOString().slice(0, 10);
+  if (!DATE_RE.test(from) || !DATE_RE.test(to)) throw new ApiError(400, 'صيغة التاريخ غير صحيحة');
+  if (from > to) throw new ApiError(400, 'تاريخ البداية يجب أن يسبق تاريخ النهاية');
+  if ((Date.parse(to) - Date.parse(from)) / 864e5 + 1 > MAX_RANGE_DAYS) {
+    throw new ApiError(400, `الفترة طويلة جداً؛ اختر ${MAX_RANGE_DAYS} يوماً كحد أقصى`);
+  }
+  return { from, to };
+};
+
+// @desc  Time leaves of the people the reviewer oversees, optionally of one
+//        employee and/or within a period
+// @route GET /api/time-leaves/review?status=Pending&userId&from&to
 // @access Private (manager: their team, admin: everyone)
 const getLeavesForReview = asyncHandler(async (req, res) => {
   const filter = {};
   if (req.user.role === 'manager') {
     const team = await User.find({ manager: req.user._id }).select('_id');
     filter.user = { $in: team.map((u) => u._id) };
+  }
+  if (req.query.userId) {
+    if (filter.user && !filter.user.$in.some((id) => String(id) === String(req.query.userId))) {
+      throw new ApiError(403, 'يمكنك عرض زمنيات أعضاء فريقك فقط');
+    }
+    filter.user = req.query.userId;
+  }
+  if (req.query.from || req.query.to) {
+    const { from, to } = periodOf(req.query);
+    filter.date = { $gte: from, $lte: to };
   }
   if (req.query.status) filter.status = req.query.status;
   const leaves = await TimeLeave.find(filter)
@@ -125,6 +153,53 @@ const reviewLeave = asyncHandler(async (req, res) => {
   if (status === 'Approved') await refreshRecord(leave);
   await notifyEvents.timeLeaveReviewed(leave, req.user);
   res.json({ success: true, leave });
+});
+
+// @desc  How many time leaves each employee had in a period, by status and
+//        type, with the approved time in minutes
+// @route GET /api/time-leaves/stats?from&to (the current month by default)
+// @access Private (manager: their team, admin: every employee)
+const getLeaveStats = asyncHandler(async (req, res) => {
+  const { from, to } = periodOf(req.query);
+  const scope = req.user.role === 'admin' ? { role: 'employee' } : { manager: req.user._id };
+  const users = await User.find(scope).select('name email isActive').sort({ name: 1 }).lean();
+  const leaves = await TimeLeave.find({ user: { $in: users.map((u) => u._id) }, date: { $gte: from, $lte: to } })
+    .select('user type minutes status addedBy')
+    .lean();
+
+  const blank = () => ({
+    approved: 0,
+    approvedMinutes: 0,
+    during: 0,
+    end: 0,
+    start: 0,
+    added: 0,
+    pending: 0,
+    rejected: 0,
+    cancelled: 0,
+  });
+  const byUser = new Map(users.map((u) => [String(u._id), blank()]));
+  for (const l of leaves) {
+    const s = byUser.get(String(l.user));
+    if (!s) continue;
+    if (l.status === 'Approved') {
+      s.approved += 1;
+      s.approvedMinutes += l.minutes || 0;
+      s[l.type] += 1;
+      if (l.addedBy) s.added += 1;
+    } else if (l.status === 'Pending') s.pending += 1;
+    else if (l.status === 'Rejected') s.rejected += 1;
+    else if (l.status === 'Cancelled') s.cancelled += 1;
+  }
+  const employees = users.map((u) => ({
+    user: { id: u._id, name: u.name, email: u.email, isActive: u.isActive },
+    ...byUser.get(String(u._id)),
+  }));
+  const totals = employees.reduce((sum, e) => {
+    for (const k of Object.keys(blank())) sum[k] += e[k];
+    return sum;
+  }, blank());
+  res.json({ success: true, from, to, employees, totals });
 });
 
 // Managers act for their own team only; admins for everyone
@@ -223,6 +298,7 @@ module.exports = {
   getMyLeaves,
   cancelLeave,
   getLeavesForReview,
+  getLeaveStats,
   reviewLeave,
   grantLeave,
   updateLeave,

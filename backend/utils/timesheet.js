@@ -59,7 +59,11 @@ const buildTimesheet = ({ user, records, overtime, leaves = [], timeLeaves = [],
     shortMinutes: 0,
     absentMinutes: 0,
     leaveMinutes: 0,
+    // Approved time leaves in the period (days not finished yet included)
     timeLeaveCount: 0,
+    timeLeaveDays: 0,
+    timeLeaveRequestedMinutes: 0,
+    timeLeavePendingCount: 0,
     balanceMinutes: 0,
     overtimeApprovedHours: 0,
     overtimePendingHours: 0,
@@ -130,6 +134,12 @@ const buildTimesheet = ({ user, records, overtime, leaves = [], timeLeaves = [],
     if (state === 'off' || state === 'offWorked') totals.offDays += 1;
     if (missed) totals.missedPunchOuts += 1;
     totals.autoCloses += autoCloses;
+    if (approvedTimeLeaves.length) {
+      totals.timeLeaveCount += approvedTimeLeaves.length;
+      totals.timeLeaveDays += 1;
+      totals.timeLeaveRequestedMinutes += approvedTimeLeaves.reduce((sum, l) => sum + (l.minutes || 0), 0);
+    }
+    totals.timeLeavePendingCount += dayTimeLeaves.length - approvedTimeLeaves.length;
     if (ot?.status === 'Approved') totals.overtimeApprovedHours += ot.requestedHours;
     if (ot?.status === 'Pending') totals.overtimePendingHours += ot.requestedHours;
 
@@ -149,7 +159,6 @@ const buildTimesheet = ({ user, records, overtime, leaves = [], timeLeaves = [],
       add('short', short);
       totals.absentMinutes += absentMinutes;
       totals.leaveMinutes += metrics.excusedMinutes;
-      totals.timeLeaveCount += approvedTimeLeaves.length;
       totals.balanceMinutes += metrics.balanceMinutes;
     }
 

@@ -10,8 +10,14 @@ import Field from '../components/Field';
 import Alert from '../components/Alert';
 import Loading from '../components/Loading';
 import TimeLeaveModal from '../components/TimeLeaveModal';
+import TimeLeaveStats from '../components/TimeLeaveStats';
 import { statusLabel } from '../utils/labels';
 import { leaveTimeText, leaveTypeLabel, leaveUseText } from '../utils/timeLeave';
+
+const TABS = [
+  { id: 'requests', label: 'الطلبات' },
+  { id: 'employees', label: 'سجل الموظفين (عدد الزمنيات)' },
+];
 
 const FILTERS = [
   { value: 'Pending', label: 'قيد الانتظار' },
@@ -25,6 +31,7 @@ const FILTERS = [
 export default function TimeLeaveApprovals() {
   const me = useSelector(selectCurrentUser);
   const isAdmin = me?.role === 'admin';
+  const [tab, setTab] = useState('requests');
   const [status, setStatus] = useState('Pending');
   const { data, isLoading } = useGetTimeLeavesForReviewQuery({ status: status || undefined });
   const [review, { isLoading: reviewing }] = useReviewTimeLeaveMutation();
@@ -161,40 +168,64 @@ export default function TimeLeaveApprovals() {
           }}
         />
       )}
-      <div className="toolbar">
-        <Field id="leave-filter" label="عرض">
-          <select id="leave-filter" value={status} onChange={(e) => setStatus(e.target.value)}>
-            {FILTERS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => {
-            setSuccess('');
-            setModal({ add: true });
-          }}
-        >
-          + إضافة زمنية لموظف
-        </button>
+      <div className="tabs" role="tablist" aria-label="أقسام الزمنيات">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`panel-${t.id}`}
+            className={`tab${tab === t.id ? ' is-active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
-      {isLoading ? (
-        <Loading />
-      ) : (
-        <DataTable
-          exportTitle="الزمنيات"
-          columns={columns}
-          rows={data?.leaves || []}
-          rowKey={(l) => l._id}
-          emptyLabel={status === 'Pending' ? 'لا توجد زمنيات بانتظار قرارك.' : 'لا توجد زمنيات.'}
-          searchPlaceholder="ابحث في الزمنيات..."
-          fileName="time-leaves"
-        />
-      )}
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        {tab === 'employees' ? (
+          <TimeLeaveStats />
+        ) : (
+          <>
+            <div className="toolbar">
+              <Field id="leave-filter" label="عرض">
+                <select id="leave-filter" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  {FILTERS.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  setSuccess('');
+                  setModal({ add: true });
+                }}
+              >
+                + إضافة زمنية لموظف
+              </button>
+            </div>
+            {isLoading ? (
+              <Loading />
+            ) : (
+              <DataTable
+                exportTitle="الزمنيات"
+                columns={columns}
+                rows={data?.leaves || []}
+                rowKey={(l) => l._id}
+                emptyLabel={status === 'Pending' ? 'لا توجد زمنيات بانتظار قرارك.' : 'لا توجد زمنيات.'}
+                searchPlaceholder="ابحث في الزمنيات..."
+                fileName="time-leaves"
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

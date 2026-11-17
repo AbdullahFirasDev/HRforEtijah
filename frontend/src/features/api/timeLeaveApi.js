@@ -20,6 +20,11 @@ export const timeLeaveApi = apiSlice.injectEndpoints({
       query: (params) => ({ url: '/time-leaves/review', params }),
       providesTags: ['TimeLeave'],
     }),
+    // How many time leaves each employee had in a period
+    getTimeLeaveStats: builder.query({
+      query: (params) => ({ url: '/time-leaves/stats', params }),
+      providesTags: ['TimeLeave'],
+    }),
     reviewTimeLeave: builder.mutation({
       query: ({ id, ...body }) => ({ url: `/time-leaves/${id}/review`, method: 'PATCH', body }),
       invalidatesTags: ['TimeLeave', 'Attendance'],
@@ -46,6 +51,7 @@ export const {
   useGetMyTimeLeavesQuery,
   useCancelTimeLeaveMutation,
   useGetTimeLeavesForReviewQuery,
+  useGetTimeLeaveStatsQuery,
   useReviewTimeLeaveMutation,
   useGrantTimeLeaveMutation,
   useUpdateTimeLeaveMutation,

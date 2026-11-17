@@ -2227,6 +2227,9 @@ label.choice-card {
 .balance-part.is-minus {
   background: var(--brick-soft);
 }
+.balance-part.is-neutral {
+  background: var(--blue-soft);
+}
 .balance-part.is-total {
   border-width: 3px;
 }
