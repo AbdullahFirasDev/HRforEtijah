@@ -4,6 +4,7 @@ import DataTable from './DataTable';
 import StatusBadge from './StatusBadge';
 import Loading from './Loading';
 import Alert from './Alert';
+import TimeLeaveModal from './TimeLeaveModal';
 import { formatMinutes, formatMonthYear, todayStr } from '../utils/format';
 import { statusLabel } from '../utils/labels';
 import { leaveTimeText, leaveTypeLabel, leaveUseText } from '../utils/timeLeave';
@@ -23,6 +24,8 @@ const countCell = (n) => (n ? String(n) : '-');
 // One employee's time leaves in the month
 function EmployeeLeaves({ employee, range, onBack }) {
   const { data, isLoading, isError } = useGetTimeLeavesForReviewQuery({ userId: employee.id, from: range.from, to: range.to });
+  const [editing, setEditing] = useState(null);
+  const [saved, setSaved] = useState('');
   if (isLoading) return <Loading />;
   if (isError) return <Alert type="error">تعذر تحميل زمنيات الموظف.</Alert>;
   const columns = [
@@ -35,6 +38,7 @@ function EmployeeLeaves({ employee, range, onBack }) {
         <span className="cell-stack">
           <strong>{leaveTypeLabel(l.type)}</strong>
           <small>{leaveTimeText(l)}</small>
+          {l.edits?.length > 0 && <small className="cell-warning">معدّلة ({l.edits.length})</small>}
         </span>
       ),
     },
@@ -51,9 +55,42 @@ function EmployeeLeaves({ employee, range, onBack }) {
       ),
     },
     { key: 'use', label: 'الاستخدام', value: leaveUseText },
+    {
+      key: 'action',
+      label: 'تعديل',
+      value: () => '',
+      render: (l) =>
+        ['Pending', 'Approved'].includes(l.status) ? (
+          <button
+            type="button"
+            className="btn secondary btn-sm"
+            onClick={() => {
+              setSaved('');
+              setEditing(l);
+            }}
+          >
+            تعديل
+          </button>
+        ) : (
+          '-'
+        ),
+    },
   ];
   return (
     <>
+      <Alert type="success" onClose={() => setSaved('')}>
+        {saved}
+      </Alert>
+      {editing && (
+        <TimeLeaveModal
+          editing={{ ...editing, id: editing._id }}
+          onClose={() => setEditing(null)}
+          onSaved={(message) => {
+            setEditing(null);
+            setSaved(message);
+          }}
+        />
+      )}
       <div className="timesheet-person">
         <button type="button" className="btn secondary btn-sm" onClick={onBack}>
           → كل الموظفين

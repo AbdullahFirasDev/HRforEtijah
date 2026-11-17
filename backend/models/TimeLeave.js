@@ -39,7 +39,7 @@ const timeLeaveSchema = new mongoose.Schema(
           by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
           at: { type: Date },
           reason: { type: String },
-          before: { type: { type: String }, from: String, to: String },
+          before: { date: String, type: { type: String }, from: String, to: String, reason: String },
           _id: false,
         },
       ],

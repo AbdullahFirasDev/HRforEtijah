@@ -47,6 +47,20 @@ const refreshRecord = async (leave) => {
   await record.save();
 };
 
+// A leave moved to another day: the old day forgets it (the check-out/in it
+// was tied to) and is recomputed without it
+const detachFromDay = async (leave, date) => {
+  const record = await Attendance.findOne({ user: leave.user._id || leave.user, date });
+  if (!record) return;
+  record.adoptLegacySession();
+  for (const s of record.sessions) {
+    if (String(s.punchIn?.leave) === String(leave._id)) s.punchIn.leave = undefined;
+    if (String(s.punchOut?.leave) === String(leave._id)) s.punchOut.leave = undefined;
+  }
+  await refreshDay(record);
+  await record.save();
+};
+
 // @desc  Employee asks for a time leave
 // @route POST /api/time-leaves
 // @access Private (employee)
@@ -248,26 +262,48 @@ const grantLeave = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, leave });
 });
 
-// @desc  A manager or admin corrects a pending or approved leave's type and
-//        times; the change is logged with its reason
+// @desc  A manager or admin corrects a pending or approved leave: its type,
+//        times, day (e.g. it was added on the wrong day) and own reason. Every
+//        change is logged with who made it and why, and the days involved are
+//        recalculated.
 // @route PATCH /api/time-leaves/:id
 // @access Private (manager: their team, admin: everyone)
 const updateLeave = asyncHandler(async (req, res) => {
-  const { type, from, to, reason } = req.body;
+  const { type, from, to, reason, leaveReason } = req.body;
   const leave = await TimeLeave.findById(req.params.id).populate('user', 'name email manager workSchedule weeklyOffDays');
   if (!leave) throw new ApiError(404, 'الزمنية غير موجودة');
   assertOversees(req.user, leave.user);
   if (!['Pending', 'Approved'].includes(leave.status)) throw new ApiError(409, 'لا يمكن تعديل زمنية مرفوضة أو ملغاة');
-  const others = await TimeLeave.find({ user: leave.user._id, date: leave.date, _id: { $ne: leave._id } }).lean();
-  const minutes = checkGrant(await planFor(leave.user, leave.date), { date: leave.date, from, to }, others);
+  const date = req.body.date || leave.date;
+  const oldDate = leave.date;
+  const moved = date !== oldDate;
+  const newReason = leaveReason?.trim() || leave.reason;
+  if (!moved && type === leave.type && from === leave.from && to === leave.to && newReason === leave.reason) {
+    throw new ApiError(400, 'لم تغيّر شيئاً في الزمنية');
+  }
+  const others = await TimeLeave.find({ user: leave.user._id, date, _id: { $ne: leave._id } }).lean();
+  const minutes = checkGrant(await planFor(leave.user, date), { date, from, to }, others);
   leave.edits = [
     ...(leave.edits || []),
-    { by: req.user._id, at: new Date(), reason, before: { type: leave.type, from: leave.from, to: leave.to } },
+    {
+      by: req.user._id,
+      at: new Date(),
+      reason,
+      before: { date: oldDate, type: leave.type, from: leave.from, to: leave.to, reason: leave.reason },
+    },
   ];
-  Object.assign(leave, { type, from, to, minutes });
+  Object.assign(leave, { date, type, from, to, minutes, reason: newReason });
+  // On another day it hasn't been used yet
+  if (moved) {
+    leave.departedAt = null;
+    leave.returnedAt = null;
+  }
   await leave.save();
+  if (moved) await detachFromDay(leave, oldDate);
   if (leave.status === 'Approved') await refreshRecord(leave);
-  logger.info(`${req.user.email} changed time leave ${leave._id} of ${leave.user.email}@${leave.date} to ${from}-${to}: ${reason}`);
+  logger.info(
+    `${req.user.email} changed time leave ${leave._id} of ${leave.user.email} from ${oldDate} to ${date} ${from}-${to}: ${reason}`
+  );
   await notifyEvents.timeLeaveGranted(leave, req.user, { edited: true, reason });
   res.json({ success: true, leave });
 });

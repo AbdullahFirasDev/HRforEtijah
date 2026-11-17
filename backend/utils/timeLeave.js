@@ -76,6 +76,12 @@ const grantRules = [
 ];
 
 const editRules = [
+  body('date', 'صيغة التاريخ غير صحيحة').optional({ values: 'falsy' }).matches(DATE_RE),
+  body('leaveReason', 'سبب الزمنية يجب أن يكون بين 3 و300 حرف')
+    .optional({ values: 'falsy' })
+    .isString()
+    .trim()
+    .isLength({ min: 3, max: 300 }),
   body('type', 'نوع الزمنية غير صحيح').isIn(Object.keys(TYPE_LABELS)),
   body('from', 'وقت بداية الزمنية غير صحيح').matches(TIME_RE),
   body('to', 'وقت نهاية الزمنية غير صحيح').matches(TIME_RE),

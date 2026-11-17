@@ -7,7 +7,7 @@ import {
   useRevokeTimeLeaveMutation,
   useUpdateTimeLeaveMutation,
 } from '../features/api/timeLeaveApi';
-import { formatClock, formatDateLong, formatMinutes, todayStr } from '../utils/format';
+import { formatClock, formatDateLong, formatDateTime, formatMinutes, todayStr } from '../utils/format';
 import { LEAVE_TYPES, leaveTypeLabel, toMinutes } from '../utils/timeLeave';
 import { shiftsText } from '../utils/workSchedule';
 
@@ -21,7 +21,8 @@ const UNCOVERED = {
 };
 
 const MIN_MINUTES = 5;
-const EMPTY = { type: 'during', from: '', to: '', reason: '' };
+const EMPTY = { type: 'during', from: '', to: '', reason: '', leaveReason: '' };
+const formOf = (leave) => ({ type: leave.type, from: leave.from, to: leave.to, reason: '', leaveReason: leave.reason || '' });
 
 // Manager/admin window to add an approved time leave (زمنية) for an employee
 // on any day, past days included, or to correct or withdraw one. Opened from
@@ -45,11 +46,9 @@ export default function TimeLeaveModal({
   const busy = granting || updating || revoking;
 
   const [userId, setUserId] = useState(employee?.id || '');
-  const [date, setDate] = useState(fixedDate || todayStr());
+  const [date, setDate] = useState(fixedDate || initialEditing?.date || todayStr());
   const [editing, setEditing] = useState(initialEditing);
-  const [form, setForm] = useState(() =>
-    initialEditing ? { type: initialEditing.type, from: initialEditing.from, to: initialEditing.to, reason: '' } : EMPTY
-  );
+  const [form, setForm] = useState(() => (initialEditing ? formOf(initialEditing) : EMPTY));
   const [confirmRevoke, setConfirmRevoke] = useState(null);
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
@@ -63,7 +62,8 @@ export default function TimeLeaveModal({
 
   const startEdit = (leave) => {
     setEditing(leave);
-    setForm({ type: leave.type, from: leave.from, to: leave.to, reason: '' });
+    setForm(formOf(leave));
+    setDate(leave.date || fixedDate || date);
     setErrors({});
     setError('');
   };
@@ -76,7 +76,8 @@ export default function TimeLeaveModal({
   const validate = () => {
     const found = {};
     if (!editing && !userId) found.userId = 'اختر الموظف';
-    if (!editing && !date) found.date = 'اختر اليوم';
+    if (!date) found.date = 'اختر اليوم';
+    if (editing && form.leaveReason.trim().length < 3) found.leaveReason = 'اكتب سبب الزمنية';
     if (!form.from) found.from = 'حدّد وقت البداية';
     if (!form.to) found.to = 'حدّد وقت النهاية';
     else if (form.from && length <= 0) found.to = 'وقت النهاية يجب أن يكون بعد وقت البداية';
@@ -93,8 +94,8 @@ export default function TimeLeaveModal({
     const body = { type: form.type, from: form.from, to: form.to, reason: form.reason.trim() };
     try {
       if (editing) {
-        await update({ id: editing.id || editing._id, ...body }).unwrap();
-        onSaved(`تم تعديل زمنية ${name} يوم ${editing.date || date} إلى ${form.from}–${form.to}.`);
+        await update({ id: editing.id || editing._id, ...body, date, leaveReason: form.leaveReason.trim() }).unwrap();
+        onSaved(`تم تعديل زمنية ${editing.user?.name || name}: يوم ${date} من ${form.from} إلى ${form.to}، وأُعيد حساب اليوم.`);
       } else {
         await grant({ userId, date, ...body }).unwrap();
         onSaved(`أُضيفت زمنية ${formatMinutes(length)} لـ ${name} يوم ${date} وأُعيد حساب اليوم.`);
@@ -115,7 +116,7 @@ export default function TimeLeaveModal({
   };
 
   const active = leaves.filter((l) => ['Approved', 'Pending'].includes(l.status));
-  const shownDate = editing?.date || date;
+  const shownDate = date;
 
   return (
     <div className="modal-overlay">
@@ -195,9 +196,24 @@ export default function TimeLeaveModal({
               </select>
             </Field>
           )}
-          {!editing && !fixedDate && (
-            <Field id="tl-date" label="اليوم" required error={errors.date} hint="يمكن اختيار يوم مضى">
-              <input id="tl-date" type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} />
+          {(editing || !fixedDate) && (
+            <Field
+              id="tl-date"
+              label="اليوم"
+              required
+              error={errors.date}
+              hint={editing ? 'غيّره لنقل الزمنية إلى يوم آخر' : 'يمكن اختيار يوم مضى'}
+            >
+              <input
+                id="tl-date"
+                type="date"
+                dir="ltr"
+                value={date}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  setErrors({});
+                }}
+              />
             </Field>
           )}
           <Field id="tl-type" label="نوع الزمنية" hint={LEAVE_TYPES[form.type]?.hint}>
@@ -218,6 +234,17 @@ export default function TimeLeaveModal({
             </Field>
           </div>
           {length > 0 && <p className="week-total">مدة الزمنية: {formatMinutes(length)}</p>}
+          {editing && (
+            <Field id="tl-leave-reason" label="سبب الزمنية" required error={errors.leaveReason}>
+              <input
+                id="tl-leave-reason"
+                maxLength={300}
+                value={form.leaveReason}
+                onChange={(e) => set({ leaveReason: e.target.value })}
+                aria-invalid={!!errors.leaveReason}
+              />
+            </Field>
+          )}
           <Field
             id="tl-reason"
             label={editing ? 'سبب التعديل' : 'السبب'}
@@ -239,6 +266,26 @@ export default function TimeLeaveModal({
               : 'الزمنية المضافة تُعتمد مباشرة: أي تأخير أو انصراف مبكر أو خروج داخل وقتها لا يُحسب على الموظف، ويُعاد حساب اليوم فوراً ويصل الموظف إشعار.'}
           </Alert>
           <Alert type="error">{error}</Alert>
+          {editing?.edits?.length > 0 && (
+            <section className="manage-section">
+              <h3>سجل التعديلات</h3>
+              <ul className="edit-history">
+                {editing.edits.map((e, i) => (
+                  <li key={i}>
+                    <strong>{e.by?.name || 'مستخدم محذوف'}</strong> · {formatDateTime(e.at)}
+                    <small>
+                      {e.reason} — كانت:{' '}
+                      <span dir="ltr">
+                        {e.before?.date ? `${e.before.date} ` : ''}
+                        {e.before?.from}–{e.before?.to}
+                      </span>{' '}
+                      ({leaveTypeLabel(e.before?.type)})
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <div className="form-actions">
             <button type="submit" className="btn" disabled={busy}>
               {granting || updating ? 'جارٍ الحفظ...' : editing ? 'حفظ التعديل' : 'إضافة الزمنية'}
@@ -251,6 +298,7 @@ export default function TimeLeaveModal({
                 onClick={() => {
                   setEditing(null);
                   setForm(EMPTY);
+                  setDate(fixedDate || todayStr());
                 }}
               >
                 رجوع
