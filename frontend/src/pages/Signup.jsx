@@ -15,6 +15,8 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [register, { isLoading }] = useRegisterMutation();
   const { data: managersData } = useGetManagersListQuery();
+  // Only the first account of a new system (no admin yet) picks its role
+  const firstSetup = !!managersData?.firstSetup;
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -27,11 +29,12 @@ export default function Signup() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const found = validateAccountForm(form);
+    const sent = firstSetup ? form : { ...form, role: 'employee' };
+    const found = validateAccountForm(sent);
     setErrors(found);
     if (hasErrors(found)) return;
     try {
-      const res = await register({ ...form, deviceId: getDeviceId() }).unwrap();
+      const res = await register({ ...sent, deviceId: getDeviceId() }).unwrap();
       dispatch(setCredentials(res));
       navigate(`/${res.user.role}`);
     } catch (err) {
@@ -49,7 +52,9 @@ export default function Signup() {
             لديك حساب بالفعل؟ <Link to="/login">تسجيل الدخول</Link>
           </p>
           <p className="auth-note">
-            ملاحظة: يجب على الموظف اختيار مدير أو مسؤول نظام يتبع له. إن لم يوجد أي مدير بعد، أنشئ حساب مدير أولاً.
+            {firstSetup
+              ? 'لا يوجد مسؤول نظام بعد: أنشئ أولاً حساب «مسؤول النظام»، ثم أضف منه المدراء والموظفين. '
+              : 'ملاحظة: التسجيل من هذه الصفحة للموظفين، ويجب اختيار المدير الذي يتبع له الموظف. يضيف مسؤول النظام حسابات المدراء. '}
             ويُربط الحساب بهذا الجهاز، فلن يمكن الدخول إليه من جهاز آخر إلا بعد أن يعيد مسؤول النظام تعيين الجهاز.
           </p>
         </>
@@ -58,7 +63,8 @@ export default function Signup() {
       <form onSubmit={handleSubmit} noValidate>
         <AccountFields
           idPrefix="signup"
-          form={form}
+          showRole={firstSetup}
+          form={firstSetup ? form : { ...form, role: 'employee' }}
           errors={errors}
           onChange={handleChange}
           managers={managersData?.managers}

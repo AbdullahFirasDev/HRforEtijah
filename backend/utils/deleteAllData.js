@@ -1,4 +1,4 @@
-// Run with: node utils/new_seed.js
+// Run with: npm run seed:clear  (node utils/deleteAllData.js)
 // Wipes ALL data from every collection (User, Attendance, Overtime) so you
 // can start end-to-end testing on a clean database. Nothing is recreated —
 // you'll need to /register or run `npm run seed` again afterwards.

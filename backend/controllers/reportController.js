@@ -5,6 +5,14 @@ const { todayLocal } = require('../utils/dateUtils');
 
 const todayStr = todayLocal;
 
+// One CSV cell: quoted when it holds a comma, quote or line break, and a
+// leading = + - @ neutralised so a spreadsheet never runs it as a formula
+const csvCell = (value) => {
+  let text = String(value ?? '');
+  if (/^[=+\-@\t\r]/.test(text) && typeof value !== 'number') text = `'${text}`;
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+
 // Builds the base query according to the requester's role:
 // employee -> only their own records, manager -> their team, admin -> everyone
 const buildScopedQuery = async (req) => {
@@ -118,11 +126,12 @@ const exportDailyReportCsv = asyncHandler(async (req, res) => {
     r.workSessions().some((s) => s.punchIn?.faceDistance != null) ? 'Yes' : 'No',
   ]);
 
-  const csv = [header, ...rows].map((row) => row.join(',')).join('\n');
+  const csv = [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
 
-  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="attendance-report.csv"');
-  res.send(csv);
+  // The BOM makes Excel read the Arabic names as UTF-8
+  res.send(`﻿${csv}`);
 });
 
 module.exports = { getDailyReport, exportDailyReportCsv };

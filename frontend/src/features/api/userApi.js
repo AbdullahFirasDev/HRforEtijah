@@ -8,7 +8,7 @@ export const userApi = apiSlice.injectEndpoints({
     }),
     createUser: builder.mutation({
       query: (body) => ({ url: '/users', method: 'POST', body }),
-      invalidatesTags: ['User'],
+      invalidatesTags: ['User', 'Attendance', 'TimeLeave'],
     }),
     getMyTeam: builder.query({
       query: () => '/users/team',
@@ -16,7 +16,7 @@ export const userApi = apiSlice.injectEndpoints({
     }),
     updateUser: builder.mutation({
       query: ({ id, ...body }) => ({ url: `/users/${id}`, method: 'PATCH', body }),
-      invalidatesTags: ['User'],
+      invalidatesTags: ['User', 'Attendance', 'Report', 'TimeLeave', 'Leave'],
     }),
     resetDevice: builder.mutation({
       query: (id) => ({ url: `/users/${id}/reset-device`, method: 'PATCH' }),
@@ -32,7 +32,7 @@ export const userApi = apiSlice.injectEndpoints({
     }),
     deleteUser: builder.mutation({
       query: ({ id, transferTo }) => ({ url: `/users/${id}`, method: 'DELETE', params: transferTo ? { transferTo } : undefined }),
-      invalidatesTags: ['User', 'Attendance', 'Overtime', 'Report'],
+      invalidatesTags: ['User', 'Attendance', 'Overtime', 'Report', 'TimeLeave', 'Leave'],
     }),
     getDailyReport: builder.query({
       query: (params) => ({ url: '/reports/daily', params }),

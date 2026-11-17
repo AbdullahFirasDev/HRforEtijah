@@ -15,7 +15,7 @@ export const timesheetApi = apiSlice.injectEndpoints({
     // Admin: recalculate recorded days on the employee's current schedule
     reapplySchedule: builder.mutation({
       query: ({ userId, from, to }) => ({ url: `/timesheets/user/${userId}/reapply`, method: 'POST', body: { from, to } }),
-      invalidatesTags: ['Attendance'],
+      invalidatesTags: ['Attendance', 'Report'],
     }),
   }),
 });

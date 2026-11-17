@@ -147,6 +147,8 @@ const reapplySchedule = async (user, from, to) => {
     record.schedule = plan;
     await refreshDay(record);
     await record.save();
+    // A new target changes how much extra time an extension gave
+    await syncExtendedOvertime(record);
     changed += 1;
   }
   return changed;
@@ -186,24 +188,67 @@ const closeOverduePeriods = async () => {
   return due.length;
 };
 
+const AUTO_OVERTIME_REASON = 'تمديد الوقت بعد نهاية الدوام';
+const extendedSessions = (record) => record.sessions.filter((s) => s.extendedAt || s.extendedUntil);
+// What the day gives beyond its target, after any lateness is made up
+const netExtraMinutes = (record) => Math.max(0, Math.round((record.totalHours - targetHours(record.schedule)) * 60));
+const toHours = (minutes) => Math.round((minutes / 60) * 100) / 100;
+
 // Time worked past the plan after the employee extended their period becomes
 // an overtime request for the manager (unless the day already has one)
 const requestExtendedOvertime = async (record) => {
-  const extended = record.sessions.filter((s) => s.extendedAt || s.extendedUntil);
-  // What the day gives beyond its target, after any lateness is made up
-  const net = Math.max(0, Math.round((record.totalHours - targetHours(record.schedule)) * 60));
+  const extended = extendedSessions(record);
+  const net = netExtraMinutes(record);
   if (!extended.length || record.overtimeRequested || net < MIN_AUTO_OVERTIME_MINUTES) return null;
   const reasons = extended.map((s) => s.extendReason).filter(Boolean);
   const overtime = await Overtime.create({
-    user: record.user,
+    user: record.user?._id || record.user,
     attendance: record._id,
     date: record.date,
-    requestedHours: Math.round((net / 60) * 100) / 100,
-    reason: `تمديد الوقت بعد نهاية الدوام${reasons.length ? `: ${reasons.join('، ')}` : ''}`,
+    requestedHours: toHours(net),
+    reason: `${AUTO_OVERTIME_REASON}${reasons.length ? `: ${reasons.join('، ')}` : ''}`,
   });
   record.overtimeRequested = true;
   record.overtime = overtime._id;
   return overtime;
+};
+
+// After an admin corrected a closed day's times (or its plan changed): the
+// overtime request the system filed for an extension follows the new hours
+// while it is still waiting for a decision (removed when too little is left),
+// and an extended day that now has enough extra time gets one. Requests the
+// employee wrote themselves, and decided ones, are never touched. Saves the
+// record when it changes it; returns { created, updated, removed }.
+const syncExtendedOvertime = async (record) => {
+  const out = { created: null, updated: null, removed: null };
+  const last = record.sessions[record.sessions.length - 1];
+  if (!last?.punchOut?.time) return out; // still open: settled at check-out
+  const net = netExtraMinutes(record);
+
+  if (record.overtime) {
+    const overtime = await Overtime.findById(record.overtime);
+    if (!overtime) {
+      record.overtimeRequested = false;
+      record.overtime = null;
+    } else {
+      const auto = overtime.reason?.startsWith(AUTO_OVERTIME_REASON);
+      if (!auto || overtime.status !== 'Pending') return out;
+      if (net >= MIN_AUTO_OVERTIME_MINUTES && extendedSessions(record).length) {
+        if (overtime.requestedHours === toHours(net)) return out;
+        overtime.requestedHours = toHours(net);
+        await overtime.save();
+        out.updated = overtime;
+        return out;
+      }
+      await overtime.deleteOne();
+      record.overtimeRequested = false;
+      record.overtime = null;
+      out.removed = overtime;
+    }
+  }
+  out.created = await requestExtendedOvertime(record);
+  await record.save();
+  return out;
 };
 
 module.exports = {
@@ -219,4 +264,5 @@ module.exports = {
   reapplySchedule,
   closeOverduePeriods,
   requestExtendedOvertime,
+  syncExtendedOvertime,
 };

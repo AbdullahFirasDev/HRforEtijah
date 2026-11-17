@@ -9,6 +9,7 @@ const connectDB = require('./config/db');
 const logger = require('./config/logger');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const ApiError = require('./utils/ApiError');
+const dropOperatorKeys = require('./middleware/dropOperatorKeys');
 
 const authRoutes = require('./routes/authRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
@@ -27,12 +28,22 @@ connectDB();
 
 const app = express();
 
+// Query values are plain strings (the first one if a key repeats). The default
+// parser turns "?userId[$ne]=x" into an object that would reach database
+// filters as an operator, or "?userId=a&userId=b" into a list of ids.
+app.set('query parser', (str) => {
+  const out = {};
+  for (const [key, value] of new URLSearchParams(str)) if (!(key in out)) out[key] = value;
+  return out;
+});
+
 app.use(helmet());
 
 // Requests are small. Older cached apps may still post a selfie: accept that
 // size so they get the "update the app" message instead of a bare 413.
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(dropOperatorKeys);
 
 // On Vercel the request arrives through Vercel's proxy, so take the client IP
 // from X-Forwarded-For (otherwise the rate limiter puts every user in one bucket).

@@ -18,8 +18,8 @@ router.use(protect);
 router.post(
   '/request',
   [
-    body('requestedHours').isFloat({ gt: 0 }).withMessage('عدد الساعات يجب أن يكون أكبر من صفر'),
-    body('reason').trim().notEmpty().withMessage('سبب الطلب مطلوب'),
+    body('requestedHours').isFloat({ gt: 0, max: 24 }).withMessage('عدد الساعات يجب أن يكون أكبر من صفر و24 ساعة كحد أقصى'),
+    body('reason').isString().trim().notEmpty().withMessage('سبب الطلب مطلوب'),
     body('date').optional().isISO8601().withMessage('التاريخ غير صحيح'),
   ],
   validate,
@@ -33,8 +33,8 @@ router.get('/all', authorize('manager', 'admin'), getAllOvertimeForReviewer);
 router.patch(
   '/:id',
   [
-    body('requestedHours').optional().isFloat({ gt: 0 }).withMessage('عدد الساعات يجب أن يكون أكبر من صفر'),
-    body('reason').optional().trim().notEmpty().withMessage('سبب الطلب لا يمكن أن يكون فارغاً'),
+    body('requestedHours').optional().isFloat({ gt: 0, max: 24 }).withMessage('عدد الساعات يجب أن يكون أكبر من صفر و24 ساعة كحد أقصى'),
+    body('reason').optional().isString().trim().notEmpty().withMessage('سبب الطلب لا يمكن أن يكون فارغاً'),
     body('date').optional().isISO8601().withMessage('التاريخ غير صحيح'),
   ],
   validate,

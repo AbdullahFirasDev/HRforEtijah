@@ -1,4 +1,4 @@
-const { dayPlan, planShifts, samePlan, targetHours, weekdayOf } = require('./schedule');
+const { dayPlan, planShifts, samePlan, weekdayOf } = require('./schedule');
 const { addDays, localDate, zonedInstant } = require('./dateUtils');
 const { leaveOn } = require('./leaves');
 const { dayMetrics, planMinutes } = require('./dayMetrics');

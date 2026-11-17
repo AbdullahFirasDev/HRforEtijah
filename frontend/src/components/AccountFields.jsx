@@ -3,7 +3,9 @@ import { ROLE_LABELS, roleLabel } from '../utils/labels';
 
 // Name / email / password / role / manager inputs shared by the signup page
 // and the admin "Add Employee" form, so both follow the same rules and look.
-export default function AccountFields({ idPrefix, form, errors, onChange, managers, passwordLabel, passwordHint }) {
+// `showRole`: false on public signup once the system has an admin (everyone
+// signing up there is an employee)
+export default function AccountFields({ idPrefix, form, errors, onChange, managers, passwordLabel, passwordHint, showRole = true }) {
   const id = (name) => `${idPrefix}-${name}`;
 
   return (
@@ -45,15 +47,17 @@ export default function AccountFields({ idPrefix, form, errors, onChange, manage
         />
       </Field>
 
-      <Field id={id('role')} label="الدور">
-        <select id={id('role')} name="role" value={form.role} onChange={onChange}>
-          {Object.entries(ROLE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {showRole && (
+        <Field id={id('role')} label="الدور">
+          <select id={id('role')} name="role" value={form.role} onChange={onChange}>
+            {Object.entries(ROLE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       {form.role === 'employee' && (
         <Field

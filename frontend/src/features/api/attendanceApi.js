@@ -4,11 +4,11 @@ export const attendanceApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     punchIn: builder.mutation({
       query: (body) => ({ url: '/attendance/punch-in', method: 'POST', body }),
-      invalidatesTags: ['Attendance'],
+      invalidatesTags: ['Attendance', 'Report', 'TimeLeave', 'Overtime'],
     }),
     punchOut: builder.mutation({
       query: (body) => ({ url: '/attendance/punch-out', method: 'POST', body }),
-      invalidatesTags: ['Attendance'],
+      invalidatesTags: ['Attendance', 'Report', 'TimeLeave', 'Overtime'],
     }),
     getTodayStatus: builder.query({
       query: () => '/attendance/today',
@@ -39,7 +39,7 @@ export const attendanceApi = apiSlice.injectEndpoints({
     // Keep working past the end of the open period, until checking out
     extendSession: builder.mutation({
       query: (body) => ({ url: '/attendance/extend', method: 'POST', body }),
-      invalidatesTags: ['Attendance'],
+      invalidatesTags: ['Attendance', 'Report'],
     }),
     // Admin: a record's periods and correction history
     getAttendanceRecord: builder.query({
@@ -49,12 +49,12 @@ export const attendanceApi = apiSlice.injectEndpoints({
     // Admin: correct a day's check-in/check-out times
     editAttendancePeriods: builder.mutation({
       query: ({ id, ...body }) => ({ url: `/attendance/${id}/periods`, method: 'PATCH', body }),
-      invalidatesTags: ['Attendance', 'Report', 'TimeLeave'],
+      invalidatesTags: ['Attendance', 'Report', 'TimeLeave', 'Overtime'],
     }),
     // Admin: record a day the employee never checked in
     addManualAttendance: builder.mutation({
       query: (body) => ({ url: '/attendance/manual', method: 'POST', body }),
-      invalidatesTags: ['Attendance', 'Report', 'TimeLeave'],
+      invalidatesTags: ['Attendance', 'Report', 'TimeLeave', 'Overtime'],
     }),
   }),
 });

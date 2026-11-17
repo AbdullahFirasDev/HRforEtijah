@@ -8,7 +8,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "seed": "node utils/seed.js",
-    "seed:clear": "node utils/new_seed.js",
+    "seed:clear": "node utils/deleteAllData.js",
     "reset-device": "node utils/resetDevice.js",
     "notifications:migrate": "node utils/notificationsMigrate.js",
     "leaves:migrate": "node utils/leavesMigrate.js",

@@ -8,11 +8,13 @@ const LeaveAttachment = require('../models/LeaveAttachment');
 const LeaveBalanceEntry = require('../models/LeaveBalanceEntry');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { createUserAccount, profileFrom } = require('../utils/userAccount');
+const { createUserAccount, isFirstSetup, profileFrom } = require('../utils/userAccount');
 const { weeklyHours, workSettingsFrom } = require('../utils/schedule');
 const { reapplySchedule } = require('../utils/attendanceDay');
 const { todayLocal } = require('../utils/dateUtils');
 const notifyEvents = require('../utils/notifyEvents');
+
+const MAX_USERS = 5000;
 
 // What the employee sees as their schedule, to tell them when it changes
 const scheduleOf = (user) =>
@@ -22,14 +24,17 @@ const scheduleOf = (user) =>
 // @route GET /api/users
 // @access Private (admin)
 const getAllUsers = asyncHandler(async (req, res) => {
-  const { role, page = 1, limit = 50 } = req.query;
+  const { role } = req.query;
+  const page = Math.max(1, Math.floor(Number(req.query.page)) || 1);
+  // Everyone by default: the users page and the manager pickers list them all
+  const limit = Math.min(Math.max(1, Math.floor(Number(req.query.limit)) || MAX_USERS), MAX_USERS);
   const query = {};
   if (role) query.role = role;
 
   const users = await User.find(query)
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
-    .limit(Number(limit));
+    .limit(limit);
   const total = await User.countDocuments(query);
 
   res.json({ success: true, count: users.length, total, users: users.map((u) => u.toSafeObject()) });
@@ -46,9 +51,10 @@ const createUser = asyncHandler(async (req, res) => {
 // @desc  Get list of managers/admins (used by signup form to assign a manager)
 // @route GET /api/users/managers
 // @access Public
+//        `firstSetup`: no admin yet, so the signup form may offer every role
 const getManagersList = asyncHandler(async (req, res) => {
-  const managers = await User.find({ role: { $in: ['manager', 'admin'] } }).select('name email role');
-  res.json({ success: true, managers });
+  const managers = await User.find({ role: { $in: ['manager', 'admin'] }, isActive: true }).select('name role');
+  res.json({ success: true, managers, firstSetup: await isFirstSetup() });
 });
 
 // @desc  Get the logged-in manager's team members
@@ -72,6 +78,11 @@ const updateUser = asyncHandler(async (req, res) => {
   // An admin locking themselves out could leave the system with no admin at all.
   if (user._id.equals(req.user._id) && (isActive === false || (role && role !== 'admin'))) {
     throw new ApiError(400, 'لا يمكنك تعطيل حسابك أو إزالة صلاحية المسؤول عن نفسك. اطلب ذلك من مسؤول آخر.');
+  }
+
+  if (managerId) {
+    const manager = await User.exists({ _id: managerId, role: { $in: ['manager', 'admin'] } });
+    if (!manager || user._id.equals(managerId)) throw new ApiError(400, 'المدير المحدد غير صحيح');
   }
 
   const scheduleBefore = scheduleOf(user);

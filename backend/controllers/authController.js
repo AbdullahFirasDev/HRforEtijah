@@ -2,14 +2,21 @@ const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const generateToken = require('../utils/generateToken');
-const { createUserAccount } = require('../utils/userAccount');
+const { createUserAccount, isFirstSetup } = require('../utils/userAccount');
 const { claimDevice } = require('../utils/device');
 
-// @desc  Register a new user (signing up also registers this device)
+// @desc  Register a new user (signing up also registers this device). Anyone
+//        can sign up, so only as an employee; the very first account of a
+//        new system (no admin yet) may choose its role, to set the system up.
+//        Managers and admins are otherwise added by an admin.
 // @route POST /api/auth/register
 // @access Public
 const register = asyncHandler(async (req, res) => {
-  const created = await createUserAccount(req.body);
+  const role = req.body.role || 'employee';
+  if (role !== 'employee' && !(await isFirstSetup())) {
+    throw new ApiError(403, 'التسجيل من هذه الصفحة للموظفين فقط. يضيف مسؤول النظام حسابات المدراء والمسؤولين.');
+  }
+  const created = await createUserAccount({ ...req.body, role });
   const user = await claimDevice(created._id, req.body.deviceId, req.get('user-agent'));
 
   const token = generateToken(user._id, user.role);

@@ -19,10 +19,13 @@ const newUserRules = [
   }),
 ];
 
+// A new system with no admin yet: its first account may sign up as one
+const isFirstSetup = async () => !(await User.exists({ role: 'admin' }));
+
 // Creates an account with a unique email; employees must report to an
 // existing manager or admin. `extra` holds fields only an admin may set.
 const createUserAccount = async ({ name, email, password, role, managerId }, extra = {}) => {
-  const existing = await User.findOne({ email: email?.toLowerCase() });
+  const existing = await User.findOne({ email: String(email || '').toLowerCase() });
   if (existing) {
     throw new ApiError(409, 'يوجد حساب بهذا البريد الإلكتروني مسبقاً');
   }
@@ -32,7 +35,7 @@ const createUserAccount = async ({ name, email, password, role, managerId }, ext
   let manager = null;
   if (finalRole === 'employee') {
     if (!managerId) throw new ApiError(400, 'اختر المدير المسؤول للمتابعة');
-    const managerDoc = await User.findOne({ _id: managerId, role: { $in: ['manager', 'admin'] } });
+    const managerDoc = await User.findOne({ _id: managerId, role: { $in: ['manager', 'admin'] }, isActive: true });
     if (!managerDoc) throw new ApiError(400, 'المدير المحدد غير موجود');
     manager = managerDoc._id;
   }
@@ -64,4 +67,4 @@ const profileFrom = async (bodyIn, exceptId = null) => {
   return out;
 };
 
-module.exports = { newUserRules, createUserAccount, profileRules, profileFrom };
+module.exports = { newUserRules, createUserAccount, isFirstSetup, profileRules, profileFrom };

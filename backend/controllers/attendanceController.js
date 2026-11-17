@@ -19,6 +19,7 @@ const {
   recalcDay,
   refreshDay,
   requestExtendedOvertime,
+  syncExtendedOvertime,
 } = require('../utils/attendanceDay');
 const { applyPeriods, editView } = require('../utils/attendanceEdit');
 const { departureLeave } = require('../utils/timeLeave');
@@ -31,8 +32,10 @@ const MAX_DAYS = 366;
 
 // One page of records: `limit` records, or with `days` the latest whole days,
 // so a screen grouped by day never shows part of one
-const pageOfRecords = async (query, { page = 1, limit = 20, days }, userFields) => {
-  const wanted = Math.min(Number(days) || 0, MAX_DAYS);
+const pageOfRecords = async (query, options, userFields) => {
+  const page = Math.max(1, Math.floor(Number(options.page)) || 1);
+  const limit = Math.min(Math.max(1, Math.floor(Number(options.limit)) || 20), 500);
+  const wanted = Math.min(Math.max(0, Number(options.days) || 0), MAX_DAYS);
   if (wanted) {
     const dates = (await Attendance.distinct('date', query)).sort().reverse();
     const records = await Attendance.find({ ...query, date: { $in: dates.slice(0, wanted) } })
@@ -44,9 +47,9 @@ const pageOfRecords = async (query, { page = 1, limit = 20, days }, userFields) 
     .populate(userFields ? { path: 'user', select: userFields } : [])
     .sort({ date: -1 })
     .skip((page - 1) * limit)
-    .limit(Number(limit));
+    .limit(limit);
   const total = await Attendance.countDocuments(query);
-  return { success: true, count: records.length, total, page: Number(page), records };
+  return { success: true, count: records.length, total, page, records };
 };
 
 // @desc  Punch in for today (again for the next work period, or for staff
@@ -255,7 +258,13 @@ const getTeamAttendance = asyncHandler(async (req, res) => {
   const teamIds = teamMembers.map((u) => u._id);
 
   const query = { user: { $in: teamIds } };
-  if (userId) query.user = userId;
+  if (userId) {
+    // Only someone on the requester's own team
+    if (!teamIds.some((id) => String(id) === String(userId))) {
+      throw new ApiError(403, 'يمكنك عرض حضور أعضاء فريقك فقط');
+    }
+    query.user = userId;
+  }
   if (date) {
     query.date = date;
   } else if (from || to) {
@@ -325,14 +334,17 @@ const getAttendanceRecord = asyncHandler(async (req, res) => {
 // @route PATCH /api/attendance/:id/periods
 // @access Private (admin)
 const editAttendancePeriods = asyncHandler(async (req, res) => {
-  const record = await Attendance.findById(req.params.id).populate('user', 'name email');
+  const record = await Attendance.findById(req.params.id).populate('user', 'name email manager');
   if (!record) throw new ApiError(404, 'سجل الحضور غير موجود');
   record.adoptLegacySession();
   applyPeriods(record, req.body.periods, { by: req.user._id, reason: req.body.reason });
   await refreshDay(record); // approved time leaves of that day
   await record.save();
+  // The system's overtime request for an extension follows the corrected hours
+  const overtime = await syncExtendedOvertime(record);
   logger.info(`${req.user.email} corrected the times of ${record.user?.email}@${record.date}: ${req.body.reason}`);
   await notifyEvents.attendanceEdited(record, req.user, { reason: req.body.reason });
+  if (overtime.created) await notifyEvents.overtimeRequested(overtime.created, record.user, { auto: true });
   res.json({ success: true, attendance: editView(record) });
 });
 
