@@ -2204,6 +2204,83 @@ label.choice-card {
 .stat-box.tone-pos .value {
   color: var(--olive-dark);
 }
+/* How the balance adds up: + early arrival + overtime − late − … = balance */
+.balance-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+.balance-part {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+.balance-part.is-plus {
+  background: var(--olive-soft);
+}
+.balance-part.is-minus {
+  background: var(--brick-soft);
+}
+.balance-part.is-total {
+  border-width: 3px;
+}
+.balance-sign {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 800;
+  background: var(--surface);
+  border: var(--border);
+  border-radius: 50%;
+}
+.balance-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.balance-body strong {
+  font-size: 17px;
+  font-weight: 800;
+}
+.balance-body span {
+  font-size: 13px;
+  font-weight: 700;
+}
+.balance-body small {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.leave-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.day-leaves {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.day-leaves li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+.day-leaves li .cell-stack {
+  flex: 1 1 220px;
+}
 
 /* Row selection in tables (admin deletes attendance records) */
 th.cell-select,

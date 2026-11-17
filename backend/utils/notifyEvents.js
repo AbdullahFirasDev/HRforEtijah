@@ -104,6 +104,34 @@ const timeLeaveReviewed = (leave, reviewer) =>
     })
   );
 
+// A manager or admin added a leave for the employee, changed its times or
+// withdrew it
+const timeLeaveGranted = (leave, by, { edited = false, reason = '' } = {}) =>
+  safely(() =>
+    notify({
+      to: [idOf(leave.user)],
+      type: 'timeLeave.granted',
+      key: `timeLeave.granted:${leave._id}:${leave.edits?.length || 0}`,
+      title: edited ? `عدّل ${by.name} زمنيتك` : `أضاف ${by.name} زمنية لك`,
+      body: leaveDetails(leave) + remarksText(edited ? reason : leave.reason, by),
+      link: '/employee/time-leaves',
+      actor: by._id,
+    })
+  );
+
+const timeLeaveRevoked = (leave, by) =>
+  safely(() =>
+    notify({
+      to: [idOf(leave.user)],
+      type: 'timeLeave.granted',
+      key: `timeLeave.revoked:${leave._id}`,
+      title: `ألغى ${by.name} زمنيتك`,
+      body: leaveDetails(leave) + remarksText(leave.reviewRemarks, by),
+      link: '/employee/time-leaves',
+      actor: by._id,
+    })
+  );
+
 // ----- Leave requests (إجازات) -----
 // The reason is never in the text: it may be medical or private. The details
 // are in the request, which only the people allowed to see it can open.
@@ -330,6 +358,8 @@ module.exports = {
   timeLeaveRequested,
   timeLeaveCancelled,
   timeLeaveReviewed,
+  timeLeaveGranted,
+  timeLeaveRevoked,
   leaveRequested,
   leaveCancelled,
   leaveReviewed,

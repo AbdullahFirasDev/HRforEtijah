@@ -24,6 +24,20 @@ export const timeLeaveApi = apiSlice.injectEndpoints({
       query: ({ id, ...body }) => ({ url: `/time-leaves/${id}/review`, method: 'PATCH', body }),
       invalidatesTags: ['TimeLeave', 'Attendance'],
     }),
+    // Managers and admins: add an approved leave for an employee (past days
+    // too), correct its times, or withdraw it
+    grantTimeLeave: builder.mutation({
+      query: (body) => ({ url: '/time-leaves/grant', method: 'POST', body }),
+      invalidatesTags: ['TimeLeave', 'Attendance'],
+    }),
+    updateTimeLeave: builder.mutation({
+      query: ({ id, ...body }) => ({ url: `/time-leaves/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['TimeLeave', 'Attendance'],
+    }),
+    revokeTimeLeave: builder.mutation({
+      query: ({ id, ...body }) => ({ url: `/time-leaves/${id}/revoke`, method: 'PATCH', body }),
+      invalidatesTags: ['TimeLeave', 'Attendance'],
+    }),
   }),
 });
 
@@ -33,4 +47,7 @@ export const {
   useCancelTimeLeaveMutation,
   useGetTimeLeavesForReviewQuery,
   useReviewTimeLeaveMutation,
+  useGrantTimeLeaveMutation,
+  useUpdateTimeLeaveMutation,
+  useRevokeTimeLeaveMutation,
 } = timeLeaveApi;

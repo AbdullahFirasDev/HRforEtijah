@@ -6,6 +6,9 @@ const mongoose = require('mongoose');
 //   start:  arrive after the start of the day
 // The employee asks, their manager (or an admin) decides, and on the day the
 // employee confirms leaving and coming back with their usual check-out/in.
+// A manager or admin can also add one directly (any past day included) or
+// correct its times. An approved leave excuses any time the employee wasn't
+// checked in within its window (utils/dayMetrics.js).
 const timeLeaveSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -26,6 +29,22 @@ const timeLeaveSchema = new mongoose.Schema(
     // Confirmed by the employee's check-out / check-in on the day
     departedAt: { type: Date, default: null },
     returnedAt: { type: Date, default: null },
+    // Added by a manager or admin for the employee (e.g. for a past day the
+    // employee didn't ask in time), approved from the start
+    addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    // Changes a manager or admin made to the times, with their reason
+    edits: {
+      type: [
+        {
+          by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+          at: { type: Date },
+          reason: { type: String },
+          before: { type: { type: String }, from: String, to: String },
+          _id: false,
+        },
+      ],
+      default: undefined,
+    },
   },
   { timestamps: true }
 );

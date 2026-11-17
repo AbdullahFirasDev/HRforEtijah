@@ -97,14 +97,15 @@ const punchIn = asyncHandler(async (req, res) => {
     record.punchIn = { time: now, location };
   }
 
+  // Lateness before this check-in, by the current rules
+  const lateBefore = sessions.length ? recalcDay(record, leaves).lateMinutes : 0;
   sessions.push({ punchIn: { time: now, faceDistance, location, leave: returning?._id } });
   if (returning) returning.returnedAt = now;
-  const lateBefore = record.lateMinutes || 0;
   recalcDay(record, leaves);
   record.autoCloseAt = autoCloseTime(record, now, leaves);
   await record.save();
   if (returning) await TimeLeave.updateOne({ _id: returning._id }, { $set: { returnedAt: now } });
-  // Lateness this check-in added (by the existing rules): the manager hears of it
+  // Lateness this check-in added (late start, or back late from a time leave): the manager hears of it
   const lateBy = (record.lateMinutes || 0) - lateBefore;
   if (lateBy > 0) await notifyEvents.lateArrival(record, req.user, lateBy, now, { returning: !!returning });
 

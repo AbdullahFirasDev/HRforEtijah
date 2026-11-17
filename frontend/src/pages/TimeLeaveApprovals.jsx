@@ -1,11 +1,15 @@
 import { useState } from 'react';
+import { useSelector } from 'react-redux';
+import { selectCurrentUser } from '../features/auth/authSlice';
 import { useGetTimeLeavesForReviewQuery, useReviewTimeLeaveMutation } from '../features/api/timeLeaveApi';
+import { useGetAllUsersQuery, useGetMyTeamQuery } from '../features/api/userApi';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import Field from '../components/Field';
 import Alert from '../components/Alert';
 import Loading from '../components/Loading';
+import TimeLeaveModal from '../components/TimeLeaveModal';
 import { statusLabel } from '../utils/labels';
 import { leaveTimeText, leaveTypeLabel, leaveUseText } from '../utils/timeLeave';
 
@@ -16,14 +20,25 @@ const FILTERS = [
   { value: '', label: 'الكل' },
 ];
 
-// Managers decide on their team's time leaves; admins on everyone's
+// Managers decide on their team's time leaves; admins on everyone's. Both can
+// add a leave for an employee (past days too) and correct or withdraw one.
 export default function TimeLeaveApprovals() {
+  const me = useSelector(selectCurrentUser);
+  const isAdmin = me?.role === 'admin';
   const [status, setStatus] = useState('Pending');
   const { data, isLoading } = useGetTimeLeavesForReviewQuery({ status: status || undefined });
   const [review, { isLoading: reviewing }] = useReviewTimeLeaveMutation();
+  const { data: allUsers } = useGetAllUsersQuery({ role: 'employee', limit: 1000 }, { skip: !isAdmin });
+  const { data: team } = useGetMyTeamQuery(undefined, { skip: isAdmin });
+  const employees = ((isAdmin ? allUsers?.users : team?.team) || [])
+    .filter((u) => u.role === 'employee' && u.isActive !== false)
+    .map((u) => ({ id: u.id, name: u.name }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
   const [remarks, setRemarks] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  // null, { add: true } or { leave } being corrected
+  const [modal, setModal] = useState(null);
 
   const decide = async (l, decision) => {
     setError('');
@@ -49,6 +64,11 @@ export default function TimeLeaveApprovals() {
         <span className="cell-stack">
           <strong>{leaveTypeLabel(l.type)}</strong>
           <small>{leaveTimeText(l)}</small>
+          {l.edits?.length > 0 && (
+            <small className="cell-warning">
+              عدّلها {l.edits[l.edits.length - 1].by?.name || 'المسؤول'}: {l.edits[l.edits.length - 1].reason}
+            </small>
+          )}
         </span>
       ),
     },
@@ -87,19 +107,33 @@ export default function TimeLeaveApprovals() {
       key: 'action',
       label: 'القرار',
       value: () => '',
-      render: (l) =>
-        l.status === 'Pending' ? (
-          <span className="row-actions">
-            <button className="btn success btn-sm" disabled={reviewing} onClick={() => decide(l, 'Approved')}>
-              قبول
+      render: (l) => (
+        <span className="row-actions">
+          {l.status === 'Pending' && (
+            <>
+              <button className="btn success btn-sm" disabled={reviewing} onClick={() => decide(l, 'Approved')}>
+                قبول
+              </button>
+              <button className="btn danger btn-sm" disabled={reviewing} onClick={() => decide(l, 'Rejected')}>
+                رفض
+              </button>
+            </>
+          )}
+          {['Pending', 'Approved'].includes(l.status) ? (
+            <button
+              className="btn secondary btn-sm"
+              onClick={() => {
+                setSuccess('');
+                setModal({ leave: l });
+              }}
+            >
+              تعديل
             </button>
-            <button className="btn danger btn-sm" disabled={reviewing} onClick={() => decide(l, 'Rejected')}>
-              رفض
-            </button>
-          </span>
-        ) : (
-          '-'
-        ),
+          ) : (
+            '-'
+          )}
+        </span>
+      ),
     },
   ];
 
@@ -115,6 +149,18 @@ export default function TimeLeaveApprovals() {
       <Alert type="success" onClose={() => setSuccess('')}>
         {success}
       </Alert>
+      {modal && (
+        <TimeLeaveModal
+          employees={employees}
+          editing={modal.leave ? { ...modal.leave, id: modal.leave._id } : null}
+          leaves={[]}
+          onClose={() => setModal(null)}
+          onSaved={(message) => {
+            setModal(null);
+            setSuccess(message);
+          }}
+        />
+      )}
       <div className="toolbar">
         <Field id="leave-filter" label="عرض">
           <select id="leave-filter" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -125,6 +171,16 @@ export default function TimeLeaveApprovals() {
             ))}
           </select>
         </Field>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            setSuccess('');
+            setModal({ add: true });
+          }}
+        >
+          + إضافة زمنية لموظف
+        </button>
       </div>
       {isLoading ? (
         <Loading />

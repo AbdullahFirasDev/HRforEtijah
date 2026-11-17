@@ -4,7 +4,9 @@ const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { todayLocal, zonedInstant } = require('../utils/dateUtils');
-const { checkRequest } = require('../utils/timeLeave');
+const { checkGrant, checkRequest } = require('../utils/timeLeave');
+const { dayPlan } = require('../utils/schedule');
+const logger = require('../config/logger');
 const { refreshDay } = require('../utils/attendanceDay');
 const notifyEvents = require('../utils/notifyEvents');
 
@@ -61,7 +63,11 @@ const requestLeave = asyncHandler(async (req, res) => {
 // @route GET /api/time-leaves/me
 // @access Private
 const getMyLeaves = asyncHandler(async (req, res) => {
-  const leaves = await TimeLeave.find({ user: req.user._id }).sort({ date: -1, from: -1 }).limit(200).populate('reviewedBy', 'name');
+  const leaves = await TimeLeave.find({ user: req.user._id })
+    .sort({ date: -1, from: -1 })
+    .limit(200)
+    .populate('reviewedBy', 'name')
+    .populate('addedBy', 'name');
   res.json({ success: true, leaves });
 });
 
@@ -95,6 +101,8 @@ const getLeavesForReview = asyncHandler(async (req, res) => {
   const leaves = await TimeLeave.find(filter)
     .populate('user', 'name email manager')
     .populate('reviewedBy', 'name')
+    .populate('addedBy', 'name')
+    .populate('edits.by', 'name')
     .sort({ date: -1, from: -1 })
     .limit(300);
   res.json({ success: true, leaves });
@@ -107,9 +115,7 @@ const reviewLeave = asyncHandler(async (req, res) => {
   const { status, reviewRemarks } = req.body;
   const leave = await TimeLeave.findById(req.params.id).populate('user', 'name manager');
   if (!leave) throw new ApiError(404, 'الزمنية غير موجودة');
-  if (req.user.role === 'manager' && String(leave.user.manager) !== String(req.user._id)) {
-    throw new ApiError(403, 'يمكنك مراجعة زمنيات أعضاء فريقك فقط');
-  }
+  assertOversees(req.user, leave.user);
   if (leave.status !== 'Pending') throw new ApiError(409, 'تمت مراجعة هذه الزمنية مسبقاً أو أُلغيت');
   leave.status = status;
   leave.reviewRemarks = reviewRemarks || '';
@@ -121,4 +127,104 @@ const reviewLeave = asyncHandler(async (req, res) => {
   res.json({ success: true, leave });
 });
 
-module.exports = { requestLeave, getMyLeaves, cancelLeave, getLeavesForReview, reviewLeave };
+// Managers act for their own team only; admins for everyone
+const assertOversees = (reviewer, employee) => {
+  if (reviewer.role === 'manager' && String(employee.manager) !== String(reviewer._id)) {
+    throw new ApiError(403, 'يمكنك إدارة زمنيات أعضاء فريقك فقط');
+  }
+};
+
+// The plan a leave is checked against: the one frozen on the day's record,
+// or the employee's current schedule for a day without one
+const planFor = async (user, date) => {
+  const record = await Attendance.findOne({ user: user._id, date }).select('schedule').lean();
+  return record?.schedule?.hours != null ? record.schedule : dayPlan(user, date);
+};
+
+// @desc  A manager or admin adds an approved time leave for an employee, on
+//        any day including past ones (e.g. time the employee was away and
+//        didn't ask for in the app). The day is recalculated at once.
+// @route POST /api/time-leaves/grant
+// @access Private (manager: their team, admin: everyone)
+const grantLeave = asyncHandler(async (req, res) => {
+  const { userId, date, type, from, to, reason } = req.body;
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError(404, 'الموظف غير موجود');
+  assertOversees(req.user, user);
+  const existing = await TimeLeave.find({ user: user._id, date }).lean();
+  const minutes = checkGrant(await planFor(user, date), req.body, existing);
+  const now = new Date();
+  const leave = await TimeLeave.create({
+    user: user._id,
+    date,
+    type,
+    from,
+    to,
+    minutes,
+    reason,
+    status: 'Approved',
+    reviewedBy: req.user._id,
+    reviewedAt: now,
+    addedBy: req.user._id,
+  });
+  await refreshRecord(leave);
+  logger.info(`${req.user.email} added a time leave for ${user.email}@${date} ${from}-${to}: ${reason}`);
+  await notifyEvents.timeLeaveGranted(leave, req.user);
+  res.status(201).json({ success: true, leave });
+});
+
+// @desc  A manager or admin corrects a pending or approved leave's type and
+//        times; the change is logged with its reason
+// @route PATCH /api/time-leaves/:id
+// @access Private (manager: their team, admin: everyone)
+const updateLeave = asyncHandler(async (req, res) => {
+  const { type, from, to, reason } = req.body;
+  const leave = await TimeLeave.findById(req.params.id).populate('user', 'name email manager workSchedule weeklyOffDays');
+  if (!leave) throw new ApiError(404, 'الزمنية غير موجودة');
+  assertOversees(req.user, leave.user);
+  if (!['Pending', 'Approved'].includes(leave.status)) throw new ApiError(409, 'لا يمكن تعديل زمنية مرفوضة أو ملغاة');
+  const others = await TimeLeave.find({ user: leave.user._id, date: leave.date, _id: { $ne: leave._id } }).lean();
+  const minutes = checkGrant(await planFor(leave.user, leave.date), { date: leave.date, from, to }, others);
+  leave.edits = [
+    ...(leave.edits || []),
+    { by: req.user._id, at: new Date(), reason, before: { type: leave.type, from: leave.from, to: leave.to } },
+  ];
+  Object.assign(leave, { type, from, to, minutes });
+  await leave.save();
+  if (leave.status === 'Approved') await refreshRecord(leave);
+  logger.info(`${req.user.email} changed time leave ${leave._id} of ${leave.user.email}@${leave.date} to ${from}-${to}: ${reason}`);
+  await notifyEvents.timeLeaveGranted(leave, req.user, { edited: true, reason });
+  res.json({ success: true, leave });
+});
+
+// @desc  A manager or admin withdraws a pending or approved leave (any day);
+//        the time it excused counts again
+// @route PATCH /api/time-leaves/:id/revoke
+// @access Private (manager: their team, admin: everyone)
+const revokeLeave = asyncHandler(async (req, res) => {
+  const leave = await TimeLeave.findById(req.params.id).populate('user', 'name email manager');
+  if (!leave) throw new ApiError(404, 'الزمنية غير موجودة');
+  assertOversees(req.user, leave.user);
+  if (!['Pending', 'Approved'].includes(leave.status)) throw new ApiError(409, 'هذه الزمنية مرفوضة أو ملغاة مسبقاً');
+  const wasApproved = leave.status === 'Approved';
+  leave.status = 'Cancelled';
+  leave.reviewRemarks = req.body?.reviewRemarks || leave.reviewRemarks;
+  leave.reviewedBy = req.user._id;
+  leave.reviewedAt = new Date();
+  await leave.save();
+  if (wasApproved) await refreshRecord(leave);
+  logger.info(`${req.user.email} withdrew time leave ${leave._id} of ${leave.user.email}@${leave.date}`);
+  await notifyEvents.timeLeaveRevoked(leave, req.user);
+  res.json({ success: true, leave });
+});
+
+module.exports = {
+  requestLeave,
+  getMyLeaves,
+  cancelLeave,
+  getLeavesForReview,
+  reviewLeave,
+  grantLeave,
+  updateLeave,
+  revokeLeave,
+};

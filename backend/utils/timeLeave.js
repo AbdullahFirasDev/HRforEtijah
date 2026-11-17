@@ -62,6 +62,52 @@ const checkRequest = (user, { date, type, from, to }, existing) => {
   return minutes;
 };
 
+// A manager or admin adding a leave for an employee, or correcting one
+const MIN_GRANT_MINUTES = 5;
+const DAYS_BACK = 366;
+
+const grantRules = [
+  body('userId', 'الموظف غير صحيح').isMongoId(),
+  body('date', 'صيغة التاريخ غير صحيحة').matches(DATE_RE),
+  body('type', 'نوع الزمنية غير صحيح').isIn(Object.keys(TYPE_LABELS)),
+  body('from', 'وقت بداية الزمنية غير صحيح').matches(TIME_RE),
+  body('to', 'وقت نهاية الزمنية غير صحيح').matches(TIME_RE),
+  body('reason', 'اكتب سبب الزمنية (3 أحرف على الأقل)').isString().trim().isLength({ min: 3, max: 300 }),
+];
+
+const editRules = [
+  body('type', 'نوع الزمنية غير صحيح').isIn(Object.keys(TYPE_LABELS)),
+  body('from', 'وقت بداية الزمنية غير صحيح').matches(TIME_RE),
+  body('to', 'وقت نهاية الزمنية غير صحيح').matches(TIME_RE),
+  body('reason', 'اكتب سبب التعديل (3 أحرف على الأقل)').isString().trim().isLength({ min: 3, max: 300 }),
+];
+
+// Checks a leave set by a manager or admin against the day's plan (the one
+// frozen on its attendance record, if any); returns its length in minutes.
+// Past days are allowed; `existing` are the day's other leaves.
+const checkGrant = (plan, { date, from, to }, existing) => {
+  const today = todayLocal();
+  if (date > addDays(today, DAYS_AHEAD)) throw new ApiError(400, `يمكن إضافة الزمنية قبل ${DAYS_AHEAD} يوماً كحد أقصى`);
+  if (date < addDays(today, -DAYS_BACK)) throw new ApiError(400, 'لا يمكن إضافة زمنية لأكثر من سنة مضت');
+  const minutes = toMinutes(to) - toMinutes(from);
+  if (minutes <= 0) throw new ApiError(400, 'وقت نهاية الزمنية يجب أن يكون بعد وقت بدايتها');
+  if (minutes < MIN_GRANT_MINUTES) throw new ApiError(400, `أقل مدة للزمنية ${MIN_GRANT_MINUTES} دقائق`);
+  if (plan.dayOff) throw new ApiError(400, 'هذا اليوم إجازة أسبوعية للموظف، فلا حاجة لزمنية');
+  const shifts = planShifts(plan);
+  if (shifts.length) {
+    const first = toMinutes(shifts[0].start);
+    const last = toMinutes(shifts[shifts.length - 1].end);
+    if (toMinutes(from) < first || toMinutes(to) > last) {
+      throw new ApiError(400, `الزمنية يجب أن تكون ضمن ساعات دوام الموظف (${shifts[0].start}–${shifts[shifts.length - 1].end})`);
+    }
+  }
+  const overlap = existing
+    .filter((l) => ['Pending', 'Approved'].includes(l.status))
+    .find((l) => toMinutes(from) < toMinutes(l.to) && toMinutes(l.from) < toMinutes(to));
+  if (overlap) throw new ApiError(409, `يتداخل هذا الوقت مع زمنية أخرى في اليوم نفسه (${overlap.from}–${overlap.to})`);
+  return minutes;
+};
+
 // The approved leave a check-out right now starts, if any: given explicitly,
 // or the only one whose time has (nearly) come
 const departureLeave = (leaves, date, leaveId, now = new Date()) => {
@@ -87,7 +133,10 @@ module.exports = {
   TYPE_LABELS,
   MAX_MINUTES,
   requestRules,
+  grantRules,
+  editRules,
   checkRequest,
+  checkGrant,
   departureLeave,
   durationText,
 };

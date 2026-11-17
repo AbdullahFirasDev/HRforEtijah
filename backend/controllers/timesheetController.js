@@ -1,5 +1,6 @@
 const Attendance = require('../models/Attendance');
 const Overtime = require('../models/Overtime');
+const TimeLeave = require('../models/TimeLeave');
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
@@ -28,16 +29,29 @@ const rangeOf = (query) => {
 
 const sheetsFor = async (users, { from, to, today }) => {
   const ids = users.map((u) => u._id);
-  const [records, overtime, leaves] = await Promise.all([
+  const [records, overtime, leaves, timeLeaves] = await Promise.all([
     Attendance.find({ user: { $in: ids }, date: { $gte: from, $lte: to } }).select(TIMESHEET_FIELDS).lean(),
     Overtime.find({ user: { $in: ids }, date: { $gte: from, $lte: to } }).lean(),
     approvedLeaves(ids, from, to),
+    // Approved ones excuse time; pending ones are only listed
+    TimeLeave.find({ user: { $in: ids }, date: { $gte: from, $lte: to }, status: { $in: ['Approved', 'Pending'] } })
+      .sort({ from: 1 })
+      .lean(),
   ]);
   return users.map((user) => {
     const mine = (list) => list.filter((x) => String(x.user) === String(user._id));
     return {
       user,
-      ...buildTimesheet({ user, records: mine(records), overtime: mine(overtime), leaves: mine(leaves), from, to, today }),
+      ...buildTimesheet({
+        user,
+        records: mine(records),
+        overtime: mine(overtime),
+        leaves: mine(leaves),
+        timeLeaves: mine(timeLeaves),
+        from,
+        to,
+        today,
+      }),
     };
   });
 };

@@ -32,6 +32,7 @@ const TYPES = {
   'overtime.requested': { category: 'requests', push: 'طلب عمل إضافي جديد بانتظار مراجعتك' },
   'attendance.late': { category: 'team', push: 'تنبيه حضور لأحد أعضاء فريقك' },
   'timeLeave.reviewed': { category: 'decisions', push: 'تمت مراجعة طلب الزمنية' },
+  'timeLeave.granted': { category: 'decisions', push: 'تحديث على زمنياتك' },
   'overtime.reviewed': { category: 'decisions', push: 'تمت مراجعة طلب العمل الإضافي' },
   'leave.reviewed': { category: 'decisions', push: 'تمت مراجعة طلب الإجازة' },
   'leave.revoked': { category: 'decisions', push: 'تحديث على طلب إجازتك' },

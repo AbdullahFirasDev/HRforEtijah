@@ -2,6 +2,7 @@ const Attendance = require('../models/Attendance');
 const Overtime = require('../models/Overtime');
 const TimeLeave = require('../models/TimeLeave');
 const { calculateHours, deriveStatus, STANDARD_SHIFT_HOURS } = require('./hours');
+const { dayMetrics } = require('./dayMetrics');
 const { APP_TIMEZONE, addDays, localMinutes, todayLocal, zonedInstant, endOfLocalDay } = require('./dateUtils');
 const { dayPlan, planShifts, samePlan, targetHours, toMinutes } = require('./schedule');
 const notifyEvents = require('./notifyEvents');
@@ -27,8 +28,6 @@ const MIN_AUTO_OVERTIME_MINUTES = 30;
 const EXTENSION_LIMIT_HOURS = 12;
 
 const tzOf = (plan) => plan?.timezone || APP_TIMEZONE;
-const leaveLength = (l) => toMinutes(l.to) - toMinutes(l.from);
-const minutesBetween = (a, b) => Math.max(0, Math.round((new Date(b) - new Date(a)) / MINUTE));
 
 // The work period a check-in at `instant` belongs to: the first that hasn't
 // ended yet (-1 after the last one)
@@ -50,10 +49,10 @@ const loadLeaves = (record) =>
   TimeLeave.find({ user: record.user?._id || record.user, date: record.date, status: 'Approved' }).lean();
 
 // Recomputes the day's totals from its periods and approved time leaves
+// (see utils/dayMetrics.js for how each minute is counted). Returns the
+// day's full breakdown.
 const recalcDay = (record, leaves = []) => {
   const plan = record.schedule;
-  const shifts = planShifts(plan);
-  const tz = tzOf(plan);
   const { sessions } = record;
 
   const worked = sessions.reduce(
@@ -62,54 +61,17 @@ const recalcDay = (record, leaves = []) => {
   );
   record.missedPunchOut = sessions.some((s) => s.punchOut?.auto);
 
-  // Lateness and early leave per work period: the first check-in of a period
-  // against its start, its last check-out against its end
-  let late = 0;
-  let early = 0;
-  if (shifts.length && !plan?.dayOff) {
-    shifts.forEach((shift, i) => {
-      const inShift = sessions.filter((s) => shiftIndexAt(shifts, s.punchIn.time, tz) === i);
-      if (!inShift.length) return;
-      late += Math.max(0, localMinutes(inShift[0].punchIn.time, tz) - toMinutes(shift.start));
-      const last = inShift[inShift.length - 1];
-      const sameDay = last.punchOut?.time <= endOfLocalDay(record.date);
-      if (last.punchOut?.time && !last.punchOut.auto && sameDay) {
-        early += Math.max(0, toMinutes(shift.end) - localMinutes(last.punchOut.time, tz));
-      }
-    });
-  }
-
-  // Approved time leaves excuse the time they cover. Coming back later than
-  // allowed counts as lateness; not coming back at all is early leave beyond
-  // the permitted time.
-  let excused = 0;
-  let lateExcuse = 0;
-  let earlyExcuse = 0;
-  let overstay = 0;
-  for (const leave of leaves) {
-    const length = leaveLength(leave);
-    if (leave.type === 'start') {
-      const used = Math.min(length, late);
-      lateExcuse += used;
-      excused += used;
-    } else if (leave.departedAt) {
-      if (leave.type === 'during' && leave.returnedAt) {
-        excused += Math.min(length, minutesBetween(leave.departedAt, leave.returnedAt));
-        overstay += minutesBetween(zonedInstant(record.date, leave.to, tz), leave.returnedAt);
-      } else {
-        excused += length;
-        earlyExcuse += length;
-      }
-    }
-  }
-  record.lateMinutes = Math.max(0, late - lateExcuse) + overstay;
-  record.earlyLeaveMinutes = Math.max(0, early - earlyExcuse);
-  record.leaveMinutes = excused;
+  const metrics = dayMetrics({ date: record.date, plan, sessions, leaves });
+  record.lateMinutes = metrics.lateMinutes;
+  record.earlyLeaveMinutes = metrics.earlyLeaveMinutes;
+  record.earlyArrivalMinutes = metrics.earlyArrivalMinutes;
+  record.overtimeMinutes = metrics.overtimeMinutes;
+  record.leaveMinutes = metrics.excusedMinutes;
 
   record.totalHours = Math.round(worked * 100) / 100;
   // Excused time counts towards completing the day, but not as overtime
-  record.status = deriveStatus(record.totalHours + excused / 60, targetHours(plan));
-  record.overtimeMinutes = Math.max(0, Math.round((worked - targetHours(plan)) * 60));
+  record.status = deriveStatus(record.totalHours + metrics.excusedMinutes / 60, targetHours(plan));
+  return metrics;
 };
 
 // When a period opened at `start` closes by itself if nobody checks out: the
@@ -227,13 +189,15 @@ const closeOverduePeriods = async () => {
 // an overtime request for the manager (unless the day already has one)
 const requestExtendedOvertime = async (record) => {
   const extended = record.sessions.filter((s) => s.extendedAt || s.extendedUntil);
-  if (!extended.length || record.overtimeRequested || record.overtimeMinutes < MIN_AUTO_OVERTIME_MINUTES) return null;
+  // What the day gives beyond its target, after any lateness is made up
+  const net = Math.max(0, Math.round((record.totalHours - targetHours(record.schedule)) * 60));
+  if (!extended.length || record.overtimeRequested || net < MIN_AUTO_OVERTIME_MINUTES) return null;
   const reasons = extended.map((s) => s.extendReason).filter(Boolean);
   const overtime = await Overtime.create({
     user: record.user,
     attendance: record._id,
     date: record.date,
-    requestedHours: Math.round((record.overtimeMinutes / 60) * 100) / 100,
+    requestedHours: Math.round((net / 60) * 100) / 100,
     reason: `تمديد الوقت بعد نهاية الدوام${reasons.length ? `: ${reasons.join('، ')}` : ''}`,
   });
   record.overtimeRequested = true;

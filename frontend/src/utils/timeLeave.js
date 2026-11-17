@@ -27,6 +27,8 @@ export const leaveTimeText = (l) => `${formatClock(l.from)} – ${formatClock(l.
 
 // What happened on the day, e.g. "خرج 11:05 ص · عاد 12:50 م"
 export const leaveUseText = (l) => {
+  // Added by a manager or admin: it excuses the time whether or not it was confirmed in the app
+  if (l.addedBy && !l.departedAt) return `أضافها ${l.addedBy.name || 'المسؤول'}`;
   if (l.type === 'start') return l.status === 'Approved' ? 'تأخير مسموح' : '-';
   if (!l.departedAt) return l.status === 'Approved' ? 'لم يُستخدم بعد' : '-';
   const out = `خرج ${formatClockTime(l.departedAt)}`;

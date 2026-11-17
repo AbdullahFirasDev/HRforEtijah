@@ -7,6 +7,7 @@ import DataTable from '../components/DataTable';
 import Loading from '../components/Loading';
 import Alert from '../components/Alert';
 import EditTimesModal from '../components/EditTimesModal';
+import TimeLeaveModal from '../components/TimeLeaveModal';
 import { formatClockTime, formatHours, formatMinutes, formatMonthYear, todayStr } from '../utils/format';
 import { attendanceNotes, notesText } from '../utils/attendance';
 import { DAY_NAMES, shiftsText } from '../utils/workSchedule';
@@ -35,8 +36,11 @@ const shiftMonth = (month, delta) => {
 // e.g. "09:00 ص – 05:00 م", "إجازة" or "دوام مرن"
 const planText = (dayOff, shifts) => (dayOff ? 'إجازة' : shiftsText(shifts) || 'دوام مرن');
 
-const signedHours = (h) => `${h > 0 ? '+' : ''}${formatHours(h)}`;
-const countText = (days, minutes) => (days ? `${days} ${days === 1 ? 'يوم' : 'أيام'} · ${formatMinutes(minutes)}` : '-');
+// e.g. "+1 س 30 د", "−45 د", "0"
+const signedMinutes = (m) => (m ? `${m > 0 ? '+' : '−'}${formatMinutes(Math.abs(m))}` : '0');
+const daysText = (n) => `${n} ${n === 1 ? 'يوم' : n === 2 ? 'يومان' : 'أيام'}`;
+const countText = (days, minutes) => (days ? `${daysText(days)} · ${formatMinutes(minutes)}` : '-');
+const minutesCell = (m) => (m ? formatMinutes(m) : '-');
 
 // The approved leave on the day: "اعتيادية · 2026-0007", or a note that the
 // employee worked during it anyway
@@ -47,23 +51,39 @@ const leaveNote = (d) => {
 };
 
 // The notes a timesheet day shows, in the shape attendanceNotes() reads
+// (minute counts have their own columns)
 const dayNotes = (d) => ({
-  lateMinutes: d.lateMinutes,
-  earlyLeaveMinutes: d.earlyLeaveMinutes,
   missedPunchOut: d.missedPunchOut,
-  overtimeMinutes: d.overtimeMinutes,
   sessionsCount: d.periods,
   dayOff: d.state === 'offWorked',
   edited: d.edited,
-  leaveMinutes: d.leaveMinutes,
 });
+
+// Time leaves of the day not decided yet, e.g. "زمنية بانتظار القرار 10:00–12:00"
+const pendingLeavesText = (d) =>
+  d.timeLeaves
+    .filter((l) => l.status === 'Pending')
+    .map((l) => `زمنية بانتظار القرار ${l.from}–${l.to}`)
+    .join('، ');
+const shortText = (d) =>
+  [
+    d.absentMinutes > 0 && `غياب ${formatMinutes(d.absentMinutes)}`,
+    d.shortMinutes > 0 && `خروج/فترة غير محضورة ${formatMinutes(d.shortMinutes)}`,
+    d.autoCloses > 1 && `انصراف تلقائي ${d.autoCloses} مرات`,
+  ]
+    .filter(Boolean)
+    .join('، ');
 
 function NoteBadges({ day }) {
   const notes = attendanceNotes(dayNotes(day));
-  if (!notes.length && !day.overtimeRequest && !day.planOutdated && !day.wrongDay && !day.leave) return '-';
+  const short = shortText(day);
+  const pending = pendingLeavesText(day);
+  if (!notes.length && !short && !pending && !day.overtimeRequest && !day.planOutdated && !day.wrongDay && !day.leave) return '-';
   return (
     <span className="notes-cell">
       {day.leave && <span className={`badge ${day.state === 'onLeave' ? 'muted' : 'info'}`}>{leaveNote(day)}</span>}
+      {short && <span className="badge danger">{short}</span>}
+      {pending && <span className="badge warning">{pending}</span>}
       {day.planOutdated && <span className="badge warning">حُسب على دوام سابق</span>}
       {day.wrongDay && <span className="badge danger">تاريخ لا يطابق وقت الحضور</span>}
       {notes.map((n) => (
@@ -84,41 +104,101 @@ function Totals({ totals }) {
   const t = totals;
   const items = [
     {
-      label: 'ساعات العمل / المطلوبة حتى اليوم',
+      label: 'ساعات العمل / المطلوبة',
       value: `${formatHours(t.workedHours)} / ${formatHours(t.targetHours)}`,
       sub: `المطلوب للشهر كاملاً حسب الجدول: ${formatHours(t.monthTargetHours)}`,
     },
-    { label: 'الفرق', value: signedHours(t.balanceHours), tone: t.balanceHours < 0 ? 'neg' : 'pos' },
+    {
+      label: 'الفرق (الرصيد)',
+      value: signedMinutes(t.balanceMinutes),
+      tone: t.balanceMinutes < 0 ? 'neg' : 'pos',
+      sub: 'الإضافي والحضور المبكر ناقص التأخير والانصراف المبكر والغياب',
+    },
     {
       label: 'أيام الحضور / الغياب / الإجازة',
       value: `${t.presentDays} / ${t.absentDays} / ${t.offDays}`,
-      sub: t.onLeaveDays ? `مجاز (إجازات مقبولة): ${t.onLeaveDays} ${t.onLeaveDays === 1 ? 'يوم' : 'أيام'}` : undefined,
+      sub: t.onLeaveDays ? `مجاز (إجازات مقبولة): ${daysText(t.onLeaveDays)}` : undefined,
     },
-    { label: 'الزمنيات (إذن بالساعة)', value: t.leaveMinutes ? formatMinutes(t.leaveMinutes) : '0' },
-    { label: 'التأخير', value: countText(t.lateDays, t.lateMinutes) },
-    { label: 'الانصراف المبكر', value: countText(t.earlyLeaveDays, t.earlyLeaveMinutes) },
     {
-      label: 'العمل الإضافي (معتمد / قيد الانتظار)',
-      value: `${formatMinutes(t.overtimeMinutes)} (${formatHours(t.overtimeApprovedHours)} / ${formatHours(t.overtimePendingHours)})`,
+      label: 'الانصراف التلقائي (لم يسجّل الانصراف)',
+      value: t.autoCloses ? `${t.autoCloses} ${t.autoCloses === 1 ? 'مرة' : 'مرات'}` : '0',
+      tone: t.autoCloses ? 'neg' : undefined,
+      sub: t.missedPunchOuts ? `في ${daysText(t.missedPunchOuts)}` : undefined,
     },
-    { label: 'انصراف تلقائي (لم يسجّل الانصراف)', value: t.missedPunchOuts, tone: t.missedPunchOuts ? 'neg' : undefined },
   ];
+  // How the balance is made up: the lines add up to it
+  const parts = [
+    { key: 'earlyArrival', label: 'الحضور المبكر', sign: 1, days: t.earlyArrivalDays, minutes: t.earlyArrivalMinutes, sub: 'قبل بداية الدوام' },
+    {
+      key: 'overtime',
+      label: 'العمل الإضافي',
+      sign: 1,
+      days: t.overtimeDays,
+      minutes: t.overtimeMinutes,
+      sub:
+        t.overtimeApprovedHours || t.overtimePendingHours
+          ? `طلبات: معتمد ${formatHours(t.overtimeApprovedHours)} · قيد الانتظار ${formatHours(t.overtimePendingHours)}`
+          : 'بعد نهاية الدوام وفي أيام الإجازة',
+    },
+    { key: 'late', label: 'الحضور المتأخر', sign: -1, days: t.lateDays, minutes: t.lateMinutes, sub: 'بعد بداية الدوام أو العودة من زمنية' },
+    { key: 'earlyLeave', label: 'الانصراف المبكر', sign: -1, days: t.earlyLeaveDays, minutes: t.earlyLeaveMinutes, sub: 'قبل نهاية الدوام' },
+    t.shortMinutes > 0 && {
+      key: 'short',
+      label: 'خروج أثناء الدوام',
+      sign: -1,
+      days: t.shortDays,
+      minutes: t.shortMinutes,
+      sub: 'بلا زمنية، أو فترة دوام لم يحضرها',
+    },
+    t.absentMinutes > 0 && { key: 'absent', label: 'الغياب', sign: -1, days: t.absentDays, minutes: t.absentMinutes, sub: 'أيام دوام بلا حضور' },
+  ].filter(Boolean);
+
   return (
-    <div className="grid grid-4 timesheet-totals">
-      {items.map((i) => (
-        <div key={i.label} className={`stat-box${i.tone ? ` tone-${i.tone}` : ''}`}>
-          <div className="value">{i.value}</div>
-          <div className="label">{i.label}</div>
-          {i.sub && <div className="sub">{i.sub}</div>}
+    <>
+      <div className="grid grid-4 timesheet-totals">
+        {items.map((i) => (
+          <div key={i.label} className={`stat-box${i.tone ? ` tone-${i.tone}` : ''}`}>
+            <div className="value">{i.value}</div>
+            <div className="label">{i.label}</div>
+            {i.sub && <div className="sub">{i.sub}</div>}
+          </div>
+        ))}
+      </div>
+      <div className="balance-breakdown" role="group" aria-label="تفصيل الفرق">
+        {parts.map((p) => (
+          <div key={p.key} className={`balance-part ${p.sign > 0 ? 'is-plus' : 'is-minus'}`}>
+            <span className="balance-sign" aria-hidden="true">
+              {p.sign > 0 ? '+' : '−'}
+            </span>
+            <span className="balance-body">
+              <strong>{p.minutes ? formatMinutes(p.minutes) : '0'}</strong>
+              <span>{p.label}</span>
+              <small>{p.days ? `${daysText(p.days)} · ${p.sub}` : p.sub}</small>
+            </span>
+          </div>
+        ))}
+        <div className={`balance-part is-total ${t.balanceMinutes < 0 ? 'is-minus' : 'is-plus'}`}>
+          <span className="balance-sign" aria-hidden="true">
+            =
+          </span>
+          <span className="balance-body">
+            <strong>{signedMinutes(t.balanceMinutes)}</strong>
+            <span>الفرق</span>
+            <small>
+              الزمنيات المعتمدة ({t.timeLeaveCount}، {formatMinutes(t.leaveMinutes)}) لا تُحسب تأخيراً ولا انصرافاً
+            </small>
+          </span>
         </div>
-      ))}
-    </div>
+      </div>
+      {t.todayInProgress && <p className="form-note">اليوم لم ينتهِ بعد، فلا يدخل في المجاميع حتى نهاية الدوام.</p>}
+    </>
   );
 }
 
-function TimesheetDetail({ userId, range, onBack, canEdit }) {
+function TimesheetDetail({ userId, range, onBack, canEdit, canGrant }) {
   const { data, isLoading, isError, error } = useGetTimesheetQuery({ userId, from: range.from, to: range.to });
   const [editing, setEditing] = useState(null); // the day being corrected
+  const [leaveDay, setLeaveDay] = useState(null); // the day getting a time leave
   const [saved, setSaved] = useState('');
   const [reapply, { isLoading: reapplying }] = useReapplyScheduleMutation();
   const [reapplyError, setReapplyError] = useState('');
@@ -158,6 +238,39 @@ function TimesheetDetail({ userId, range, onBack, canEdit }) {
       label: 'الساعات / المطلوب',
       value: (d) => `${formatHours(d.workedHours)} / ${formatHours(d.targetHours)}`,
     },
+    { key: 'earlyArrival', label: 'حضور مبكر', value: (d) => minutesCell(d.earlyArrivalMinutes) },
+    {
+      key: 'late',
+      label: 'تأخير',
+      value: (d) => minutesCell(d.lateMinutes),
+      render: (d) => (d.lateMinutes ? <span className="badge warning">{formatMinutes(d.lateMinutes)}</span> : '-'),
+    },
+    {
+      key: 'earlyLeave',
+      label: 'انصراف مبكر',
+      value: (d) => minutesCell(d.earlyLeaveMinutes),
+      render: (d) => (d.earlyLeaveMinutes ? <span className="badge warning">{formatMinutes(d.earlyLeaveMinutes)}</span> : '-'),
+    },
+    {
+      key: 'overtime',
+      label: 'إضافي',
+      value: (d) => minutesCell(d.overtimeMinutes),
+      render: (d) => (d.overtimeMinutes ? <span className="badge info">{formatMinutes(d.overtimeMinutes)}</span> : '-'),
+    },
+    { key: 'leaveMinutes', label: 'زمنية', value: (d) => minutesCell(d.leaveMinutes) },
+    {
+      key: 'balance',
+      label: 'الفرق',
+      value: (d) => (d.counted ? signedMinutes(d.balanceMinutes) : 'جارٍ'),
+      render: (d) =>
+        !d.counted ? (
+          <span className="badge muted">جارٍ</span>
+        ) : d.balanceMinutes ? (
+          <span className={`badge ${d.balanceMinutes < 0 ? 'danger' : 'success'}`}>{signedMinutes(d.balanceMinutes)}</span>
+        ) : (
+          '0'
+        ),
+    },
     {
       key: 'state',
       label: 'الحالة',
@@ -171,6 +284,8 @@ function TimesheetDetail({ userId, range, onBack, canEdit }) {
       value: (d) =>
         [
           leaveNote(d),
+          shortText(d),
+          pendingLeavesText(d),
           notesText(dayNotes(d)),
           d.overtimeRequest && `طلب إضافي ${d.overtimeRequest.hours} س: ${statusLabel(d.overtimeRequest.status)}`,
         ]
@@ -179,23 +294,41 @@ function TimesheetDetail({ userId, range, onBack, canEdit }) {
       render: (d) => <NoteBadges day={d} />,
     },
   ];
-  // Admins correct times, or record a day the employee never checked in
-  if (canEdit) {
+  // Admins correct times, or record a day the employee never checked in;
+  // managers and admins add or correct a time leave (زمنية) on any working day
+  if (canEdit || canGrant) {
     columns.push({
       key: 'edit',
-      label: 'تعديل',
+      label: 'إجراءات',
       value: () => '',
       render: (d) => (
-        <button
-          type="button"
-          className="btn secondary btn-sm"
-          onClick={() => {
-            setSaved('');
-            setEditing(d);
-          }}
-        >
-          {d.recordId ? 'تعديل الأوقات' : 'إضافة حضور'}
-        </button>
+        <span className="row-actions">
+          {canEdit && (
+            <button
+              type="button"
+              className="btn secondary btn-sm"
+              onClick={() => {
+                setSaved('');
+                setEditing(d);
+              }}
+            >
+              {d.recordId ? 'تعديل الأوقات' : 'إضافة حضور'}
+            </button>
+          )}
+          {canGrant && !d.dayOff && (
+            <button
+              type="button"
+              className={`btn btn-sm${d.uncovered.length ? '' : ' secondary'}`}
+              title={d.uncovered.length ? 'في هذا اليوم وقت غير مبرر يمكن احتسابه زمنية' : undefined}
+              onClick={() => {
+                setSaved('');
+                setLeaveDay(d);
+              }}
+            >
+              {d.timeLeaves.length ? `زمنية (${d.timeLeaves.length})` : 'زمنية'}
+            </button>
+          )}
+        </span>
       ),
     });
   }
@@ -265,6 +398,20 @@ function TimesheetDetail({ userId, range, onBack, canEdit }) {
           }}
         />
       )}
+      {leaveDay && (
+        <TimeLeaveModal
+          employee={{ id: data.user.id, name: data.user.name }}
+          date={leaveDay.date}
+          shifts={leaveDay.shifts}
+          leaves={leaveDay.timeLeaves}
+          uncovered={leaveDay.uncovered}
+          onClose={() => setLeaveDay(null)}
+          onSaved={(message) => {
+            setLeaveDay(null);
+            setSaved(message);
+          }}
+        />
+      )}
       <Totals totals={data.totals} />
       <DataTable
         exportTitle={`الكشف الشهري لـ ${data.user.name} — ${formatMonthYear(range.year, range.month)}`}
@@ -306,20 +453,21 @@ function TimesheetSummary({ range, onOpen }) {
     {
       key: 'balance',
       label: 'الفرق',
-      value: (e) => signedHours(e.totals.balanceHours),
+      value: (e) => signedMinutes(e.totals.balanceMinutes),
       render: (e) => (
-        <span className={`badge ${e.totals.balanceHours < 0 ? 'danger' : 'success'}`}>{signedHours(e.totals.balanceHours)}</span>
+        <span className={`badge ${e.totals.balanceMinutes < 0 ? 'danger' : 'success'}`}>{signedMinutes(e.totals.balanceMinutes)}</span>
       ),
     },
+    { key: 'earlyArrival', label: 'حضور مبكر', value: (e) => minutesCell(e.totals.earlyArrivalMinutes) },
     { key: 'late', label: 'التأخير', value: (e) => countText(e.totals.lateDays, e.totals.lateMinutes) },
-    { key: 'overtime', label: 'الإضافي', value: (e) => (e.totals.overtimeMinutes ? formatMinutes(e.totals.overtimeMinutes) : '-') },
-    { key: 'leaves', label: 'الزمنيات', value: (e) => (e.totals.leaveMinutes ? formatMinutes(e.totals.leaveMinutes) : '-') },
+    { key: 'earlyLeave', label: 'انصراف مبكر', value: (e) => countText(e.totals.earlyLeaveDays, e.totals.earlyLeaveMinutes) },
+    { key: 'overtime', label: 'الإضافي', value: (e) => minutesCell(e.totals.overtimeMinutes) },
+    { key: 'leaves', label: 'الزمنيات', value: (e) => minutesCell(e.totals.leaveMinutes) },
     {
       key: 'missed',
       label: 'انصراف تلقائي',
-      value: (e) => String(e.totals.missedPunchOuts),
-      render: (e) =>
-        e.totals.missedPunchOuts ? <span className="badge danger">{e.totals.missedPunchOuts}</span> : '0',
+      value: (e) => String(e.totals.autoCloses),
+      render: (e) => (e.totals.autoCloses ? <span className="badge danger">{e.totals.autoCloses}</span> : '0'),
     },
     {
       key: 'action',
@@ -393,6 +541,7 @@ export default function Timesheets() {
           range={range}
           onBack={oversees ? () => setUserId(null) : null}
           canEdit={me?.role === 'admin'}
+          canGrant={oversees}
         />
       )}
     </div>

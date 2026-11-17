@@ -58,6 +58,7 @@ export const attendanceNotes = (r) => {
   const periods = r.sessionsCount ?? sessionsOf(r).length;
   return [
     (r.dayOff ?? r.schedule?.dayOff) && { key: 'off', text: 'عمل في يوم إجازة', variant: 'info' },
+    r.earlyArrivalMinutes > 0 && { key: 'earlyArrival', text: `حضور مبكر ${formatMinutes(r.earlyArrivalMinutes)}`, variant: 'muted' },
     r.lateMinutes > 0 && { key: 'late', text: `تأخر ${formatMinutes(r.lateMinutes)}`, variant: 'warning' },
     r.earlyLeaveMinutes > 0 && {
       key: 'early',
